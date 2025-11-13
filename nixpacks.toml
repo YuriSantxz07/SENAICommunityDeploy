@@ -1,0 +1,19 @@
+[phases.setup]
+cmds = [
+    "cd BackEnd && mvn dependency:resolve"
+]
+
+[phases.build]
+cmds = [
+    "cd BackEnd && mvn clean package -DskipTests"
+]
+
+[start]
+cmd = "cd BackEnd && java -Dserver.port=$PORT -jar target/BackEnd-0.0.1-SNAPSHOT.jar"
+
+[build.env]
+JAVA_VERSION = "21"
+
+[[providers]]
+id = "java"
+jdk = "21"
