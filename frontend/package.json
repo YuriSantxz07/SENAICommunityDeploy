@@ -2,9 +2,9 @@
   "name": "frontend",
   "version": "1.0.0",
   "scripts": {
-    "start": "npx serve -s . -p $PORT --single"
+    "start": "node server.js"
   },
   "dependencies": {
-    "serve": "^14.2.1"
+    "express": "^4.18.2"
   }
 }
