@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   // --- CONFIGURAÇÕES E VARIÁVEIS GLOBAIS ---
-  const backendUrl = "http://localhost:8080";
+  const backendUrl = "https://senaicommunitydeploy-production.up.railway.app";
   const jwtToken = localStorage.getItem("token");
   const defaultAvatarUrl = `${backendUrl}/images/default-avatar.jpg`;
   let stompClient = null;
