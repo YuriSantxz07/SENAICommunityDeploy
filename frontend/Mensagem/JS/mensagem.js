@@ -5,11 +5,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- ELEMENTOS DO DOM (Específicos do Chat) ---
   const elements = {
     conversationsList: document.getElementById("conversations-list"),
-    chatHeader: document.getElementById("chat-header-area"), // ID do HTML
-    chatMessagesContainer: document.getElementById("chat-messages-area"), // ID do HTML
-    messageInput: document.getElementById("chat-input"), // ID do HTML
-    chatForm: document.getElementById("chat-form"), // ID do HTML
-    chatSendBtn: document.getElementById("chat-send-btn"), // ID do HTML
+    chatHeader: document.getElementById("chat-header-area"),
+    chatMessagesContainer: document.getElementById("chat-messages-area"),
+    messageInput: document.getElementById("chat-input"),
+    chatForm: document.getElementById("chat-form"),
+    chatSendBtn: document.getElementById("chat-send-btn"),
+    recordAudioBtn: document.getElementById("record-audio-btn"), // Botão de gravar
     conversationSearch: document.getElementById("convo-search"),
     addGroupBtn: document.querySelector(".add-convo-btn"),
     addConvoModal: document.getElementById("add-convo-modal"),
@@ -23,6 +24,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let userFriends = []; // Será preenchido pela variável global
   let activeConversation = { usuarioId: null, nome: null, avatar: null };
   let chatMessages = new Map();
+
+  // --- Variáveis de Estado de Gravação ---
+  let mediaRecorder;
+  let audioChunks = [];
+  let isRecording = false;
+  let timerInterval; 
+  let startTime;   
 
   // --- VARIÁVEIS GLOBAIS (Definidas pelo principal.js) ---
   let currentUser;
@@ -46,9 +54,15 @@ document.addEventListener("DOMContentLoaded", () => {
     setupChatEventListeners();
   }
 
-  document.addEventListener("globalScriptsLoaded", (e) =>
-    initChatPage(e.detail)
-  );
+document.addEventListener("globalScriptsLoaded", (e) => {
+  initChatPage(e.detail);
+  document.addEventListener("friendsListUpdated", () => {
+    userFriends = window.userFriends;
+    if (elements.addConvoModal.style.display === "flex") {
+      renderAvailableUsers();
+    }
+  });
+});
 
   /**
    * Busca apenas as conversas existentes.
@@ -142,58 +156,47 @@ document.addEventListener("DOMContentLoaded", () => {
           "Amigo não encontrado para iniciar conversa:",
           otherUserId
         );
-        // Notifica o usuário que o contato não foi encontrado
         window.showNotification(
           "Não foi possível encontrar os dados deste contato.",
           "error"
         );
-        return; // Impede a continuação se os dados do amigo não existem
+        return; 
       }
 
-      // Usa os dados do amigo para criar um objeto temporário similar ao ConversaResumoDTO
       convoData = {
         outroUsuarioId: friendData.idUsuario,
         nomeOutroUsuario: friendData.nome,
-        // Constrói a URL do avatar a partir do AmigoDTO
         avatarUrl: friendAvatar,
-        // Valores padrão para uma nova conversa
-        conteudoUltimaMensagem: null, // Será "Inicie a conversa..." no card
-        dataEnvioUltimaMensagem: new Date().toISOString(), // Data atual
+        conteudoUltimaMensagem: null, 
+        dataEnvioUltimaMensagem: new Date().toISOString(), 
         remetenteUltimaMensagemId: null,
       };
       isNewConversation = true;
     }
 
-    // Define a conversa ativa globalmente
     activeConversation = {
       usuarioId: otherUserId,
-      nome: convoData.nomeOutroUsuario || convoData.nome, // Garante que pegue o nome correto
-      avatar: convoData.avatarUrl || defaultAvatarUrl, // Garante que pegue o avatar correto
+      nome: convoData.nomeOutroUsuario || convoData.nome, 
+      avatar: convoData.avatarUrl || defaultAvatarUrl,
     };
 
     if (isNewConversation) {
-      // Verifica se um card para este usuário JÁ existe na lista (evita duplicatas)
       const existingCard = document.querySelector(
         `.convo-card[data-user-id="${otherUserId}"]`
       );
       if (!existingCard) {
-        // Cria e adiciona o card NOVO na lista da interface
         const tempCard = createConversationCardElement(convoData);
         elements.conversationsList.prepend(tempCard); // Adiciona no topo
       }
-      // Adiciona a "conversa" temporária ao array 'conversas' para consistência da UI
-      // A próxima chamada a fetchConversations trará os dados reais se mensagens forem enviadas.
       if (!conversas.some((c) => c.outroUsuarioId === otherUserId)) {
         conversas.unshift(convoData);
       }
     }
 
-    // Atualiza a UI: Cabeçalho e destaque do card
     renderChatHeader();
     document
       .querySelectorAll(".convo-card")
       .forEach((card) => card.classList.remove("selected"));
-    // Agora o seletor DEVE encontrar o card (existente ou o recém-criado)
     const selectedCard = document.querySelector(
       `.convo-card[data-user-id="${otherUserId}"]`
     );
@@ -206,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
     try {
-      // Chama o novo endpoint POST que criamos no ChatRestController
       await axios.post(
         `${backendUrl}/api/chat/privado/marcar-lida/${otherUserId}`
       );
@@ -216,23 +218,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       console.error("Erro ao marcar conversa como lida:", error);
-      // Continua mesmo se falhar em marcar como lida, para o usuário ver as mensagens
     }
 
     elements.chatMessagesContainer.innerHTML =
       '<div class="empty-chat">Carregando histórico...</div>';
 
-    // Busca e renderiza as mensagens (buscará lista vazia para nova conversa)
     await fetchMessages(otherUserId); //
 
-    // Atualiza a contagem de mensagens não lidas (global)
     if (typeof fetchAndUpdateUnreadCount === "function") {
       fetchAndUpdateUnreadCount();
     }
 
-    // Habilita a área de input
     elements.messageInput.disabled = false;
     elements.chatSendBtn.disabled = false;
+    elements.recordAudioBtn.disabled = false; // Habilita o botão de gravar
     elements.messageInput.placeholder = `Escreva para ${activeConversation.nome}...`; // Placeholder dinâmico
     elements.messageInput.focus();
   }
@@ -250,7 +249,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // USA O NOVO ENDPOINT DO BACKEND (ChatRestController)
       const response = await axios.get(
         `${backendUrl}/api/chat/privado/historico/${otherUserId}`
       );
@@ -266,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Envia uma mensagem.
+   * Envia uma mensagem DE TEXTO.
    */
   function handleSendMessage(e) {
     e.preventDefault();
@@ -279,22 +277,34 @@ document.addEventListener("DOMContentLoaded", () => {
       destinatarioId: activeConversation.usuarioId,
     };
 
-    stompClient.send(
-      `/app/privado/${activeConversation.usuarioId}`,
-      {},
-      JSON.stringify(messageData)
-    );
+    sendPrivateMessage(messageData); // Usa a função centralizada
+    
     elements.messageInput.value = "";
     elements.messageInput.focus();
   }
 
-  // --- INÍCIO DAS NOVAS FUNÇÕES (EDITAR/EXCLUIR) ---
+  /**
+   * Função centralizada para enviar ao WebSocket
+   */
+  function sendPrivateMessage(messageData) {
+     if (!messageData.conteudo || !messageData.destinatarioId || !stompClient?.connected) {
+         console.error("Dados da mensagem inválidos ou WebSocket desconectado.");
+         return;
+     }
+     
+     stompClient.send(
+      `/app/privado/${messageData.destinatarioId}`,
+      {},
+      JSON.stringify(messageData)
+    );
+  }
+
+  // --- FUNÇÕES DE EDITAR/EXCLUIR ---
 
   /**
    * Dispara a edição de uma mensagem.
    */
   async function handleEditMessage(messageId) {
-    // 1. Encontra o conteúdo atual da mensagem no DOM
     const msgElement = document.querySelector(
       `.message-group[data-message-id="${messageId}"]`
     );
@@ -303,15 +313,20 @@ document.addEventListener("DOMContentLoaded", () => {
       : null;
 
     if (!contentElement) return;
-    const oldContent = contentElement.innerText; // Pega o texto atual
+    
+    // Não permite editar áudio
+    if (contentElement.querySelector('audio')) {
+        window.showNotification("Não é possível editar mensagens de áudio.", "error");
+        return;
+    }
+    
+    const oldContent = contentElement.innerText; 
 
-    // 2. Pede o novo conteúdo ao usuário
     const newContent = prompt(
       "Digite o novo conteúdo da mensagem:",
       oldContent
     );
 
-    // 3. Verifica se o usuário cancelou ou não alterou o conteúdo
     if (
       newContent === null ||
       newContent.trim() === "" ||
@@ -320,18 +335,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // 4. Envia a requisição PUT para o backend
     try {
-      // O backend já está esperando uma String simples no @RequestBody
       await axios.put(
         `${backendUrl}/api/chat/privado/${messageId}`,
         newContent,
         {
-          headers: { "Content-Type": "text/plain" }, // Importante para o backend ler como String
+          headers: { "Content-Type": "text/plain" },
         }
       );
-      // Não precisamos atualizar o DOM manualmente.
-      // O backend enviará a atualização via WebSocket, e o onMessageReceived cuidará disso.
     } catch (error) {
       console.error("Erro ao editar mensagem:", error);
       window.showNotification("Não foi possível editar a mensagem.", "error");
@@ -353,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- FIM DAS NOVAS FUNÇÕES ---
+  // --- FIM DAS FUNÇÕES DE EDITAR/EXCLUIR ---
 
   /**
    * Recebe uma mensagem (do WebSocket).
@@ -361,7 +372,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function onMessageReceived(payload) {
     const msg = JSON.parse(payload.body);
 
-    // --- INÍCIO DA MODIFICAÇÃO (Lógica de Remoção) ---
     if (msg.tipo === "remocao") {
       const msgElement = document.querySelector(
         `[data-message-id="${msg.id}"]`
@@ -377,14 +387,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (chatMessages.has(cacheKey)) {
           let messageList = chatMessages.get(cacheKey);
-          // Filtra a lista, mantendo todas, exceto a que foi removida
           messageList = messageList.filter((m) => m.id !== msg.id);
           chatMessages.set(cacheKey, messageList);
         }
       }
       return;
     }
-    // --- FIM DA MODIFICAÇÃO (Lógica de Remoção) ---
 
     const otherUserId =
       msg.remetenteId === currentUser.id ? msg.destinatarioId : msg.remetenteId;
@@ -392,7 +400,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!chatMessages.has(cacheKey)) chatMessages.set(cacheKey, []);
 
-    // --- INÍCIO DA MODIFICAÇÃO (Lógica de Edição/Nova) ---
     const messageList = chatMessages.get(cacheKey);
     const existingMsgIndex = messageList.findIndex((m) => m.id === msg.id);
 
@@ -441,6 +448,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- FUNÇÕES DE RENDERIZAÇÃO (UI do Chat) ---
+
+  /**
+   * Helper para checar se é URL de áudio
+   */
+  function isAudioUrl(url) {
+      if (typeof url !== 'string') return false;
+      // Checa se é uma URL (simplificado) e se termina com extensão de áudio
+      return (url.startsWith('http://') || url.startsWith('https://')) &&
+             /\.(mp3|wav|ogg|aac|flac|m4a|webm|opus)$/i.test(url);
+  }
+
   function renderMessages(messages) {
     if (!elements.chatMessagesContainer) return;
 
@@ -480,6 +498,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `
           : "";
+          
+        let messageContentHtml = '';
+        if (isAudioUrl(msg.conteudo)) {
+            // É uma URL de áudio
+            messageContentHtml = `<audio controls src="${msg.conteudo}"></audio>`;
+        } else {
+            // É texto, vamos escapar para evitar XSS
+            const textNode = document.createTextNode(msg.conteudo);
+            const p = document.createElement('p');
+            p.appendChild(textNode);
+            messageContentHtml = p.innerHTML;
+        }
 
         return `
                 <div class="message-group ${messageClass}" data-message-id="${
@@ -497,7 +527,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <strong>${nome}</strong>
                                 <span>${time}</span>
                             </div>
-                            <div class="message-content">${msg.conteudo}</div>
+                            <div class="message-content">${messageContentHtml}</div>
                         </div>
                     </div>
                     </div>
@@ -563,10 +593,136 @@ document.addEventListener("DOMContentLoaded", () => {
     elements.addConvoModal.style.display = "flex";
   }
 
+  // --- Funções de Gravação de Áudio ---
+  
+  function updateTimerDisplay() {
+      const elapsed = Date.now() - startTime;
+      const totalSeconds = Math.floor(elapsed / 1000);
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      
+      const timerElement = elements.recordAudioBtn.querySelector('.audio-timer');
+      if (timerElement) {
+          timerElement.textContent = `${minutes}:${seconds}`;
+      } else {
+          // Se o elemento não existir, cria e insere
+          elements.recordAudioBtn.innerHTML = `
+              <i class="fas fa-stop"></i>
+              <span class="audio-timer">00:00</span>
+          `;
+      }
+  }
+
+  /**
+   * Inicia a gravação do áudio
+   */
+  async function startRecording() {
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          
+          mediaRecorder.ondataavailable = event => {
+              audioChunks.push(event.data);
+          };
+          
+          mediaRecorder.onstop = stopAndUploadAudio;
+          
+          mediaRecorder.start();
+          isRecording = true;
+          
+          startTime = Date.now();
+          updateTimerDisplay(); 
+          timerInterval = setInterval(updateTimerDisplay, 1000);
+          
+          elements.recordAudioBtn.classList.add('recording');
+          elements.messageInput.disabled = true;
+          elements.messageInput.placeholder = "Gravando áudio...";
+          
+      } catch (error) {
+          console.error("Erro ao acessar o microfone:", error);
+          window.showNotification("Não foi possível acessar seu microfone.", "error");
+      }
+  }
+
+  /**
+   * Para a gravação, processa o blob, e faz o upload.
+   */
+  async function stopAndUploadAudio() {
+      isRecording = false;
+      
+      clearInterval(timerInterval); 
+      
+      if (mediaRecorder) {
+          mediaRecorder.stream.getTracks().forEach(track => track.stop()); 
+      }
+      
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+      
+      elements.recordAudioBtn.innerHTML = `<i class="fas fa-microphone"></i>`; 
+      
+      elements.recordAudioBtn.classList.remove('recording');
+      elements.messageInput.disabled = false;
+      elements.messageInput.placeholder = `Escreva para ${activeConversation.nome}...`;
+      
+      if (audioBlob.size < 1000) {
+          console.log("Gravação muito curta, descartada.");
+          return;
+      }
+      
+      window.showNotification("Enviando áudio...", "info");
+
+      const formData = new FormData();
+      const uploadUrl = new URL('/api/chat/privado/upload', backendUrl).href;
+      
+      formData.append('file', audioBlob, `audio-message-${Date.now()}.webm`); 
+      
+      try {
+          const response = await axios.post(uploadUrl, formData);
+          const audioUrl = response.data.url;
+          
+          if (!audioUrl) {
+              throw new Error("URL do áudio não recebida do servidor.");
+          }
+
+          const messageData = {
+              conteudo: audioUrl,
+              destinatarioId: activeConversation.usuarioId,
+          };
+          
+          sendPrivateMessage(messageData);
+
+      } catch (error) {
+          console.error("Erro ao fazer upload do áudio:", error);
+          let errorMsg = "Falha ao enviar o áudio.";
+          if (error.response && error.response.data && error.response.data.error) {
+              errorMsg = error.response.data.error;
+          }
+          window.showNotification(errorMsg, "error");
+      }
+  }
+
+
   // --- SETUP DE EVENT LISTENERS (Específicos do Chat) ---
   function setupChatEventListeners() {
     if (elements.chatForm) {
       elements.chatForm.addEventListener("submit", handleSendMessage);
+    }
+
+    // Listener do Botão de Gravação
+    if (elements.recordAudioBtn) {
+        elements.recordAudioBtn.addEventListener('click', () => {
+            if (!activeConversation.usuarioId) {
+                window.showNotification("Selecione uma conversa primeiro.", "error");
+                return;
+            }
+
+            if (isRecording) {
+                mediaRecorder.stop(); // Isso vai triggar o 'onstop' (stopAndUploadAudio)
+            } else {
+                startRecording();
+            }
+        });
     }
 
     if (elements.conversationSearch) {
@@ -609,6 +765,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // Listeners para Editar/Excluir
     if (elements.chatMessagesContainer) {
       elements.chatMessagesContainer.addEventListener("click", (e) => {
         const editBtn = e.target.closest(".btn-edit-msg");
