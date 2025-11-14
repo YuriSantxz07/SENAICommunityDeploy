@@ -2,9 +2,9 @@
   "name": "frontend",
   "version": "1.0.0",
   "scripts": {
-    "start": "npx serve -s . -p $PORT"
+    "start": "npx serve -s . -p $PORT --single"
   },
   "dependencies": {
-    "serve": "^14.0.0"
+    "serve": "^14.2.1"
   }
 }
