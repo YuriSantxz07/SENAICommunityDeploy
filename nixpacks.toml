@@ -1,3 +1,6 @@
+[build]
+base_image = "ubuntu-22.04"
+
 [phases.setup]
 cmds = [
     "cd BackEnd && mvn dependency:resolve"
@@ -13,7 +16,3 @@ cmd = "cd BackEnd && java -Dserver.port=$PORT -jar target/BackEnd-0.0.1-SNAPSHOT
 
 [build.env]
 JAVA_VERSION = "21"
-
-[[providers]]
-id = "java"
-jdk = "21"
