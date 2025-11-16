@@ -2,7 +2,6 @@ package com.SenaiCommunity.BackEnd.Controller;
 
 import com.SenaiCommunity.BackEnd.DTO.ComentarioEntradaDTO;
 import com.SenaiCommunity.BackEnd.DTO.ComentarioSaidaDTO;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Service.ComentarioService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +21,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Controller
-@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR') or hasRole('ADMIN')")
+@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR')")
 public class ComentarioController {
 
     @Autowired
@@ -33,35 +32,27 @@ public class ComentarioController {
 
     // --- PARTE WEBSOCKET (para criar comentários em tempo real) ---
     @MessageMapping("/postagem/{postagemId}/comentar")
-    public void novoComentario(@DestinationVariable Long postagemId,
-                               @Payload ComentarioEntradaDTO comentarioDTO,
-                               Principal principal) {
+    @SendTo("/topic/postagem/{postagemId}/comentarios")
+    public ComentarioSaidaDTO novoComentario(@DestinationVariable Long postagemId,
+                                             @Payload ComentarioEntradaDTO comentarioDTO,
+                                             Principal principal) {
+        ComentarioSaidaDTO novoComentario = comentarioService.criarComentario(postagemId, principal.getName(), comentarioDTO);
 
-        try {
-            ComentarioSaidaDTO novoComentario = comentarioService.criarComentario(postagemId, principal.getName(), comentarioDTO);
-            messagingTemplate.convertAndSend("/topic/postagem/" + postagemId + "/comentarios", novoComentario);
-
-            if (comentarioDTO.getParentId() != null) {
-                Map<String, Object> payload = Map.of(
-                        "tipo", "nova_resposta",
-                        "comentario", novoComentario,
-                        "postagemId", postagemId
-                );
-                messagingTemplate.convertAndSend("/topic/comentario/" + comentarioDTO.getParentId() + "/respostas", payload);
-            }
-
-            // Tópico público (feed)
-            Map<String, Object> payloadPublico = Map.of("tipo", "novo_comentario", "id", postagemId);
-            messagingTemplate.convertAndSend("/topic/publico", payloadPublico);
-
-        } catch (ConteudoImproprioException e) {
-            String destination = "/user/" + principal.getName() + "/queue/errors";
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/errors", e.getMessage());
-
-        } catch (Exception e) {
-            String destination = "/user/" + principal.getName() + "/queue/errors";
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/errors", "Não foi possível enviar seu comentário.");
+        // Se for uma resposta, notificar também o tópico específico do comentário pai
+        if (comentarioDTO.getParentId() != null) {
+            Map<String, Object> payload = Map.of(
+                    "tipo", "nova_resposta",
+                    "comentario", novoComentario,
+                    "postagemId", postagemId
+            );
+            messagingTemplate.convertAndSend("/topic/comentario/" + comentarioDTO.getParentId() + "/respostas", payload);
         }
+
+        // Notifica o feed público que a postagem foi atualizada com um novo comentário
+        Map<String, Object> payloadPublico = Map.of("tipo", "novo_comentario", "id", postagemId);
+        messagingTemplate.convertAndSend("/topic/publico", payloadPublico);
+
+        return novoComentario;
     }
 
     // --- PARTE REST (endpoints para editar/excluir) ---

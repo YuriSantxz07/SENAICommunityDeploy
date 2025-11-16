@@ -1,22 +1,23 @@
 package com.SenaiCommunity.BackEnd.Service;
 
-import com.SenaiCommunity.BackEnd.DTO.ConversaResumoDTO;
 import com.SenaiCommunity.BackEnd.DTO.MensagemPrivadaEntradaDTO;
 import com.SenaiCommunity.BackEnd.DTO.MensagemPrivadaSaidaDTO;
 import com.SenaiCommunity.BackEnd.Entity.MensagemPrivada;
 import com.SenaiCommunity.BackEnd.Entity.Usuario;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Repository.MensagemPrivadaRepository;
 import com.SenaiCommunity.BackEnd.Repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Transactional; // Importe esta anotação
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class MensagemPrivadaService {
@@ -30,23 +31,6 @@ public class MensagemPrivadaService {
     @Autowired
     private NotificacaoService notificacaoService;
 
-    @Autowired
-    private SimpMessagingTemplate messagingTemplate;
-
-    @Autowired
-    private FiltroProfanidadeService filtroProfanidade;
-
-    private void notificarAtualizacaoContagemNaoLida(Usuario usuario) {
-        if (usuario == null || usuario.getEmail() == null) return;
-
-        long contagem = mensagemPrivadaRepository.countByDestinatarioAndLidaIsFalse(usuario);
-
-        String destination = "/user/" + usuario.getEmail() + "/queue/contagem";
-
-        messagingTemplate.convertAndSend(destination, contagem);
-    }
-
-
     private MensagemPrivadaSaidaDTO toDTO(MensagemPrivada mensagem) {
         return MensagemPrivadaSaidaDTO.builder()
                 .id(mensagem.getId())
@@ -58,7 +42,6 @@ public class MensagemPrivadaService {
                 .destinatarioId(mensagem.getDestinatario().getId())
                 .nomeDestinatario(mensagem.getDestinatario().getNome())
                 .destinatarioEmail(mensagem.getDestinatario().getEmail())
-                .lida(mensagem.isLida())
                 .build();
     }
 
@@ -73,11 +56,6 @@ public class MensagemPrivadaService {
 
     @Transactional
     public MensagemPrivadaSaidaDTO salvarMensagemPrivada(MensagemPrivadaEntradaDTO dto, String remetenteUsername) {
-
-        if (filtroProfanidade.contemProfanidade(dto.getConteudo())) {
-            throw new ConteudoImproprioException("Sua mensagem contém texto não permitido.");
-        }
-
         Usuario remetente = usuarioRepository.findByEmail(remetenteUsername)
                 .orElseThrow(() -> new NoSuchElementException("Remetente não encontrado"));
         Usuario destinatario = usuarioRepository.findById(dto.getDestinatarioId())
@@ -86,79 +64,16 @@ public class MensagemPrivadaService {
         MensagemPrivada novaMensagem = toEntity(dto, remetente, destinatario);
         MensagemPrivada mensagemSalva = mensagemPrivadaRepository.save(novaMensagem);
 
+        // Adiciona a notificação
         notificacaoService.criarNotificacao(
                 destinatario,
                 "Você recebeu uma nova mensagem de " + remetente.getNome()
         );
 
-        notificarAtualizacaoContagemNaoLida(destinatario);
-
         return toDTO(mensagemSalva);
     }
 
-    /**
-     * Busca um resumo de todas as conversas do usuário logado.
-     */
-    @Transactional(readOnly = true)
-    public List<ConversaResumoDTO> buscarResumoConversas(String usuarioLogadoUsername) {
-
-        Usuario usuarioLogado = usuarioRepository.findByEmail(usuarioLogadoUsername)
-                .orElseThrow(() -> new NoSuchElementException("Usuário logado não encontrado"));
-
-        List<MensagemPrivada> ultimasMensagens = mensagemPrivadaRepository.findUltimasMensagensPorConversa(usuarioLogado.getId());
-
-        return ultimasMensagens.stream()
-                .map(mensagem -> {
-
-                    Usuario outroUsuario;
-                    if (mensagem.getRemetente().getId().equals(usuarioLogado.getId())) {
-                        outroUsuario = mensagem.getDestinatario();
-                    } else {
-                        outroUsuario = mensagem.getRemetente();
-                    }
-
-                    String urlFoto = "/images/default-avatar.jpg"; // Padrão
-                    if (outroUsuario.getFotoPerfil() != null && !outroUsuario.getFotoPerfil().isBlank()) {
-                        urlFoto = "/api/arquivos/" + outroUsuario.getFotoPerfil();
-                    }
-
-                    return ConversaResumoDTO.builder()
-                            .outroUsuarioId(outroUsuario.getId())
-                            .nomeOutroUsuario(outroUsuario.getNome())
-                            .emailOutroUsuario(outroUsuario.getEmail())
-                            .fotoPerfilOutroUsuario(urlFoto)
-                            .ultimaMensagemId(mensagem.getId())
-                            .conteudoUltimaMensagem(mensagem.getConteudo())
-                            .dataEnvioUltimaMensagem(mensagem.getDataEnvio())
-                            .remetenteUltimaMensagemId(mensagem.getRemetente().getId())
-                            .build();
-                })
-                .collect(Collectors.toList());
-    }
-
-    public long contarMensagensNaoLidas(String userEmail) {
-        Usuario usuario = usuarioRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new NoSuchElementException("Usuário não encontrado: " + userEmail));
-        return mensagemPrivadaRepository.countByDestinatarioAndLidaIsFalse(usuario);
-    }
-
-    @Transactional
-    public void marcarConversaComoLida(String emailUsuarioLogado, Long idRemetente) {
-        Usuario usuarioLogado = usuarioRepository.findByEmail(emailUsuarioLogado)
-                .orElseThrow(() -> new NoSuchElementException("Usuário logado não encontrado: " + emailUsuarioLogado));
-        Usuario remetente = usuarioRepository.findById(idRemetente)
-                .orElseThrow(() -> new NoSuchElementException("Remetente não encontrado com ID: " + idRemetente));
-
-        mensagemPrivadaRepository.marcarComoLidas(usuarioLogado, remetente);
-
-        notificarAtualizacaoContagemNaoLida(usuarioLogado);
-    }
-
     public MensagemPrivadaSaidaDTO editarMensagemPrivada(Long id, String novoConteudo, String autorUsername) {
-        if (filtroProfanidade.contemProfanidade(novoConteudo)) {
-            throw new ConteudoImproprioException("Sua edição contém texto não permitido.");
-        }
-
         MensagemPrivada mensagem = mensagemPrivadaRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Mensagem não encontrada"));
 
@@ -168,7 +83,7 @@ public class MensagemPrivadaService {
 
         mensagem.setConteudo(novoConteudo);
         MensagemPrivada mensagemSalva = mensagemPrivadaRepository.save(mensagem);
-        return toDTO(mensagemSalva);
+        return toDTO(mensagemSalva); // Retorna o DTO
     }
 
     public MensagemPrivadaSaidaDTO excluirMensagemPrivada(Long id, String autorUsername) {
@@ -180,13 +95,14 @@ public class MensagemPrivadaService {
         }
 
         mensagemPrivadaRepository.delete(mensagem);
-        return toDTO(mensagem);
+        return toDTO(mensagem); // Retorna o DTO da mensagem excluída
     }
 
     public List<MensagemPrivadaSaidaDTO> buscarMensagensPrivadas(Long user1, Long user2) {
         List<MensagemPrivada> mensagens = mensagemPrivadaRepository.findMensagensEntreUsuarios(user1, user2);
+        // Converte a lista de entidades para uma lista de DTOs antes de retornar
         return mensagens.stream()
-                .map(this::toDTO)
+                .map(this::toDTO) // Usa o método toDTO que você já criou
                 .collect(Collectors.toList());
     }
 }

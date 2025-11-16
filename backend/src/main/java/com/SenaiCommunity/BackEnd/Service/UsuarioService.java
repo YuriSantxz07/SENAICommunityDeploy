@@ -1,13 +1,14 @@
 package com.SenaiCommunity.BackEnd.Service;
 
+import com.SenaiCommunity.BackEnd.DTO.AmigoDTO;
 import com.SenaiCommunity.BackEnd.DTO.UsuarioAtualizacaoDTO;
 import com.SenaiCommunity.BackEnd.DTO.UsuarioBuscaDTO;
 import com.SenaiCommunity.BackEnd.DTO.UsuarioSaidaDTO;
 import com.SenaiCommunity.BackEnd.Entity.Amizade;
 import com.SenaiCommunity.BackEnd.Entity.Usuario;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Repository.AmizadeRepository;
 import com.SenaiCommunity.BackEnd.Repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,6 +18,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -35,18 +39,8 @@ public class UsuarioService {
     @Autowired
     private UserStatusService userStatusService;
 
-    @Autowired
-    private ArquivoMidiaService midiaService;
-
-    @Autowired
-    private FiltroProfanidadeService filtroProfanidade;
-
-
-    public UsuarioSaidaDTO buscarUsuarioPorId(Long id) {
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o ID: " + id));
-        return new UsuarioSaidaDTO(usuario);
-    }
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     /**
      * método público para buscar usuário por email.
@@ -69,11 +63,6 @@ public class UsuarioService {
      * Atualiza os dados do usuário logado.
      */
     public UsuarioSaidaDTO atualizarUsuarioLogado(Authentication authentication, UsuarioAtualizacaoDTO dto) {
-        if (filtroProfanidade.contemProfanidade(dto.getNome()) ||
-                filtroProfanidade.contemProfanidade(dto.getBio())) {
-            throw new ConteudoImproprioException("Seus dados de perfil contêm texto não permitido.");
-        }
-
         Usuario usuario = getUsuarioFromAuthentication(authentication);
 
         if (StringUtils.hasText(dto.getNome())) {
@@ -99,8 +88,9 @@ public class UsuarioService {
         }
 
         Usuario usuario = getUsuarioFromAuthentication(authentication);
-        String urlCloudinary = midiaService.upload(foto);
-        usuario.setFotoPerfil(urlCloudinary);
+        String nomeArquivo = salvarFoto(foto);
+        // Assumindo que o campo é 'urlFotoPerfil'. Se for 'fotoPerfil', ajuste aqui.
+        usuario.setFotoPerfil(nomeArquivo);
 
         Usuario usuarioAtualizado = usuarioRepository.save(usuario);
         return new UsuarioSaidaDTO(usuarioAtualizado);
@@ -126,6 +116,20 @@ public class UsuarioService {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o email do token: " + email));
     }
 
+    private String salvarFoto(MultipartFile foto) throws IOException {
+        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
+
+        // Garante que o diretório de upload exista
+        Path diretorioUpload = Paths.get(uploadDir);
+        Files.createDirectories(diretorioUpload);
+
+        Path caminhoDoArquivo = diretorioUpload.resolve(nomeArquivo);
+        foto.transferTo(caminhoDoArquivo);
+
+        // Retorna APENAS o nome do arquivo.
+        // O restante da URL será montado no frontend ou no DTO.
+        return nomeArquivo;
+    }
 
     /**
      * Busca usuários por nome e determina o status de amizade com o usuário logado.
@@ -147,7 +151,7 @@ public class UsuarioService {
         UsuarioBuscaDTO.StatusAmizadeRelacao status = determinarStatusAmizade(usuario, usuarioLogado);
 
         String urlFoto = usuario.getFotoPerfil() != null && !usuario.getFotoPerfil().isBlank()
-                ? usuario.getFotoPerfil()
+                ? "/api/arquivos/" + usuario.getFotoPerfil()
                 : "/images/default-avatar.png";
 
         return new UsuarioBuscaDTO(

@@ -2,15 +2,18 @@ package com.SenaiCommunity.BackEnd.Controller;
 
 import com.SenaiCommunity.BackEnd.DTO.ProjetoDTO;
 import com.SenaiCommunity.BackEnd.Entity.ProjetoMembro;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Service.ProjetoService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +23,8 @@ public class ProjetoController {
 
     @Autowired
     private ProjetoService projetoService;
+
+    private static final String UPLOAD_DIR = "uploads/projeto-pictures/";
 
     @GetMapping
     public ResponseEntity<List<ProjetoDTO>> listarTodos() {
@@ -41,12 +46,16 @@ public class ProjetoController {
             @RequestParam Integer maxMembros,
             @RequestParam Boolean grupoPrivado,
             @RequestParam Long autorId,
+            // ADICIONE (required = false) AQUI
             @RequestParam(required = false) List<Long> professorIds,
+            // E AQUI
             @RequestParam(required = false) List<Long> alunoIds,
             @RequestPart(required = false) MultipartFile foto) {
         try {
             if (foto != null && !foto.isEmpty()) {
                 System.out.println("[DEBUG] Recebendo upload de imagem: " + foto.getOriginalFilename());
+                System.out.println("[DEBUG] Content-Type: " + foto.getContentType());
+                System.out.println("[DEBUG] Tamanho: " + foto.getSize() + " bytes");
             }
 
             ProjetoDTO dto = new ProjetoDTO();
@@ -58,18 +67,11 @@ public class ProjetoController {
             dto.setProfessorIds(professorIds);
             dto.setAlunoIds(alunoIds);
 
-
             ProjetoDTO salvo = projetoService.salvar(dto, foto);
-
             return ResponseEntity.ok(Map.of(
                     "message", "Projeto criado com sucesso! Convites enviados automaticamente para professores e alunos.",
                     "projeto", salvo
             ));
-        }catch (ConteudoImproprioException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", e.getMessage()));
-
         } catch (Exception e) {
             System.err.println("[ERROR] Erro ao criar projeto: " + e.getMessage());
             e.printStackTrace();
@@ -80,12 +82,15 @@ public class ProjetoController {
     @PutMapping("/{id}")
     public ResponseEntity<ProjetoDTO> atualizar(@PathVariable Long id, @RequestBody ProjetoDTO dto) {
         dto.setId(id);
-        // Esta chamada passa 'null' para a foto, o que é correto para
-        // uma atualização que não altera a imagem.
         ProjetoDTO atualizado = projetoService.salvar(dto, null);
         return ResponseEntity.ok(atualizado);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+        projetoService.deletar(id);
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/{projetoId}/convites")
     public ResponseEntity<?> enviarConvite(
@@ -206,4 +211,34 @@ public class ProjetoController {
         }
     }
 
+    @GetMapping("/imagens/{filename:.+}")
+    public ResponseEntity<Resource> servirImagem(@PathVariable String filename) {
+        try {
+            Path filePath = Paths.get(UPLOAD_DIR).resolve(filename).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (resource.exists() && resource.isReadable()) {
+                // Determinar content type baseado na extensão
+                String contentType = "image/jpeg"; // default
+                String fileName = filename.toLowerCase();
+                if (fileName.endsWith(".png")) {
+                    contentType = "image/png";
+                } else if (fileName.endsWith(".gif")) {
+                    contentType = "image/gif";
+                } else if (fileName.endsWith(".webp")) {
+                    contentType = "image/webp";
+                }
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                        .body(resource);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            System.err.println("[ERROR] Erro ao servir imagem: " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

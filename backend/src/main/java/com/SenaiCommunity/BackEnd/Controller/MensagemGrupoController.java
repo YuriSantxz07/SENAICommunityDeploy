@@ -3,7 +3,6 @@ package com.SenaiCommunity.BackEnd.Controller;
 import com.SenaiCommunity.BackEnd.DTO.MensagemGrupoEntradaDTO;
 import com.SenaiCommunity.BackEnd.DTO.MensagemGrupoSaidaDTO;
 import com.SenaiCommunity.BackEnd.Entity.MensagemGrupo;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Service.MensagemGrupoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,7 +21,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Controller
-@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR') or hasRole('ADMIN')")
+@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR')")
 public class MensagemGrupoController {
 
     @Autowired
@@ -32,21 +31,11 @@ public class MensagemGrupoController {
     private MensagemGrupoService mensagemGrupoService;
 
     @MessageMapping("/grupo/{projetoId}")
-    public void enviarParaGrupo(@DestinationVariable Long projetoId,
-                                @Payload MensagemGrupoEntradaDTO dto,
-                                Principal principal) {
-
-        try {
-            MensagemGrupoSaidaDTO dtoSalvo = mensagemGrupoService.salvarMensagemGrupo(dto, projetoId, principal.getName());
-
-            messagingTemplate.convertAndSend("/topic/grupo/" + projetoId, dtoSalvo);
-
-        } catch (ConteudoImproprioException e) {
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/errors", e.getMessage());
-
-        } catch (Exception e) {
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/errors", "Não foi possível enviar a mensagem.");
-        }
+    @SendTo("/topic/grupo/{projetoId}")
+    public MensagemGrupoSaidaDTO enviarParaGrupo(@DestinationVariable Long projetoId,
+                                                 @Payload MensagemGrupoEntradaDTO dto, // <-- Recebe DTO de Entrada
+                                                 Principal principal) {
+        return mensagemGrupoService.salvarMensagemGrupo(dto, projetoId, principal.getName());
     }
 
     // Classe interna para os endpoints REST

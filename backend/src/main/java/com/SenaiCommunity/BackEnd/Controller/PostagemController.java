@@ -19,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/postagem")
-@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR') or hasRole('ADMIN')")
+@PreAuthorize("hasRole('ALUNO') or hasRole('PROFESSOR')")
 public class PostagemController {
 
     @Autowired

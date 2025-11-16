@@ -5,7 +5,6 @@ import com.SenaiCommunity.BackEnd.DTO.ComentarioSaidaDTO;
 import com.SenaiCommunity.BackEnd.Entity.Comentario;
 import com.SenaiCommunity.BackEnd.Entity.Postagem;
 import com.SenaiCommunity.BackEnd.Entity.Usuario;
-import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Repository.ComentarioRepository;
 import com.SenaiCommunity.BackEnd.Repository.PostagemRepository;
 import com.SenaiCommunity.BackEnd.Repository.UsuarioRepository;
@@ -23,7 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 @Service
-public class  ComentarioService {
+public class ComentarioService {
 
     @Autowired
     private ComentarioRepository comentarioRepository;
@@ -37,9 +36,6 @@ public class  ComentarioService {
     @Autowired
     private NotificacaoService notificacaoService;
 
-    @Autowired
-    private FiltroProfanidadeService filtroProfanidade;
-
     /**
      * Cria um novo comentário, associa ao autor e à postagem, e o salva no banco.
      */
@@ -50,11 +46,6 @@ public class  ComentarioService {
         Postagem postagem = postagemRepository.findById(postagemId)
                 .orElseThrow(() -> new EntityNotFoundException("Postagem não encontrada"));
 
-        // 1. Checa o conteúdo ANTES de criar o objeto
-        if (filtroProfanidade.contemProfanidade(dto.getConteudo())) {
-            throw new ConteudoImproprioException("Seu comentário contém texto não permitido.");
-        }
-
         Comentario novoComentario = Comentario.builder()
                 .conteudo(dto.getConteudo())
                 .dataCriacao(LocalDateTime.now()) // Definindo a data de criação
@@ -62,44 +53,31 @@ public class  ComentarioService {
                 .postagem(postagem)
                 .build();
 
-        Comentario parent = null; // Variável para guardar o comentário pai
-
-        // 2. Se for uma resposta, associa ao comentário pai
+        // Se for uma resposta, associa ao comentário pai
         if (dto.getParentId() != null) {
-            parent = comentarioRepository.findById(dto.getParentId())
+            Comentario parent = comentarioRepository.findById(dto.getParentId())
                     .orElseThrow(() -> new EntityNotFoundException("Comentário pai não encontrado"));
             novoComentario.setParent(parent);
-        }
 
-        // 3. ▼▼▼ CORREÇÃO: Salva o comentário ANTES de notificar ▼▼▼
-        Comentario comentarioSalvo = comentarioRepository.save(novoComentario);
-
-        // 4. Envia notificações (Agora 'comentarioSalvo.getId()' funciona)
-        if (parent != null) {
             // Notifica o autor do comentário PAI (se não for ele mesmo)
             if (!parent.getAutor().getId().equals(autor.getId())) {
                 notificacaoService.criarNotificacao(
                         parent.getAutor(),
-                        autor.getNome() + " respondeu ao seu comentário.",
-                        "NOVO_COMENTARIO",
-                        postagem.getId(), // PostID
-                        comentarioSalvo.getId() // O ID do novo comentário
+                        autor.getNome() + " respondeu ao seu comentário."
                 );
             }
-        } else {
+
+        }else {
             // Se não for uma resposta, notifica o autor da POSTAGEM (se não for ele mesmo)
             if (!postagem.getAutor().getId().equals(autor.getId())) {
                 notificacaoService.criarNotificacao(
                         postagem.getAutor(),
-                        autor.getNome() + " comentou na sua postagem.",
-                        "NOVO_COMENTARIO",
-                        postagem.getId(), // PostID
-                        comentarioSalvo.getId() // O ID do novo comentário
+                        autor.getNome() + " comentou na sua postagem."
                 );
             }
         }
-        // ▲▲▲ FIM DA CORREÇÃO ▲▲▲
 
+        Comentario comentarioSalvo = comentarioRepository.save(novoComentario);
         return toDTO(comentarioSalvo);
     }
 
@@ -115,12 +93,6 @@ public class  ComentarioService {
         if (!comentario.getAutor().getEmail().equals(username)) {
             throw new SecurityException("Acesso negado: Você não é o autor deste comentário.");
         }
-
-        // ▼▼▼ CORREÇÃO: Verificar o 'novoConteudo', não o conteúdo antigo ▼▼▼
-        if (filtroProfanidade.contemProfanidade(novoConteudo)) {
-            throw new ConteudoImproprioException("Seu comentário contém texto não permitido.");
-        }
-        // ▲▲▲ FIM DA CORREÇÃO ▲▲▲
 
         comentario.setConteudo(novoConteudo);
         Comentario comentarioSalvo = comentarioRepository.save(comentario);

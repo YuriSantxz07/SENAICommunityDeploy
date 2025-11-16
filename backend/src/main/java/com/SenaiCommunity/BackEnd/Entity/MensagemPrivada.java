@@ -32,7 +32,4 @@ public class MensagemPrivada {
 
     @Transient // não persistido diretamente no banco
     private String remetenteUsername;
-
-    @Column(nullable = false)
-    private boolean lida = false;
 }
