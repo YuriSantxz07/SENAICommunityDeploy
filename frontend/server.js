@@ -43,27 +43,6 @@ app.use(express.static(__dirname, {
   fallthrough: true
 }));
 
-// Rota raiz com verificação de arquivo
-app.get('/', (req, res) => {
-  console.log('📍 Root route accessed');
-  const filePath = path.join(__dirname, 'principal.html');
-  
-  // Verificar se o arquivo existe
-  if (!fs.existsSync(filePath)) {
-    console.error('❌ principal.html not found at:', filePath);
-    return res.status(500).send('principal.html not found');
-  }
-  
-  console.log('✅ Serving principal.html from:', filePath);
-  res.sendFile(filePath, (err) => {
-    if (err) {
-      console.error('❌ Error sending principal.html:', err);
-      res.status(500).send('Error loading application');
-    } else {
-      console.log('✅ principal.html sent successfully');
-    }
-  });
-});
 
 // Rota para arquivos HTML específicos
 app.get('*.html', (req, res) => {
