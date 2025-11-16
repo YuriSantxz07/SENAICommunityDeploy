@@ -1,8 +1,23 @@
 {
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "SENAI Community Frontend",
+  "main": "server.js",
   "scripts": {
-    "start": "node server-simple.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2"
+  },
+  "keywords": [
+    "frontend",
+    "senai",
+    "community"
+  ],
+  "author": "Seu Nome",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
