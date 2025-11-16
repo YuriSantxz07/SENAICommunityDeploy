@@ -8,5 +8,11 @@ import java.util.List;
 
 @Repository
 public interface PostagemRepository extends JpaRepository<Postagem, Long> {
-    List<Postagem> findTop50ByOrderByDataPostagemDesc();
+    @Query("SELECT p FROM Postagem p " +
+       "LEFT JOIN FETCH p.arquivos " +
+       "LEFT JOIN FETCH p.curtidas " +
+       "LEFT JOIN FETCH p.comentarios c " +
+       "LEFT JOIN FETCH c.curtidas " +
+       "ORDER BY p.dataPostagem DESC LIMIT 50")
+List<Postagem> findTop50ComRelacionamentos();
 }
