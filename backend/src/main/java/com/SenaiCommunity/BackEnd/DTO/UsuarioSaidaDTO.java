@@ -29,17 +29,13 @@ public class UsuarioSaidaDTO {
         this.dataNascimento = usuario.getDataNascimento();
         this.dataCadastro = usuario.getDataCadastro();
 
-        String urlFoto = usuario.getFotoPerfil();
+        String nomeFoto = usuario.getFotoPerfil();
 
-        if (urlFoto != null && urlFoto.startsWith("http")) {
-            // 1. Se for uma URL completa (do Cloudinary), usa ela diretamente.
-            this.urlFotoPerfil = urlFoto;
-        } else if (urlFoto != null && !urlFoto.isBlank()) {
-            // 2. Se for um nome de arquivo antigo (do sistema local), mantém a rota antiga.
-            this.urlFotoPerfil = "/api/arquivos/" + urlFoto;
+        if (nomeFoto != null && !nomeFoto.isBlank()) {
+
+            this.urlFotoPerfil = nomeFoto;
         } else {
-            // 3. Se for nulo ou vazio, usa a imagem padrão correta.
-            this.urlFotoPerfil = "/images/default-avatar.jpg"; //
+            this.urlFotoPerfil = "/images/default-avatar.jpg";
         }
     }
 }

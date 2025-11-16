@@ -2,18 +2,14 @@ package com.SenaiCommunity.BackEnd.Service;
 
 import com.SenaiCommunity.BackEnd.DTO.ProjetoDTO;
 import com.SenaiCommunity.BackEnd.Entity.*;
+import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.util.StringUtils;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -22,8 +18,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class ProjetoService {
-
-    private static final String UPLOAD_DIR = "uploads/projeto-pictures/";
 
     @Autowired
     private ProjetoRepository projetoRepository;
@@ -46,6 +40,12 @@ public class ProjetoService {
     @Autowired
     private NotificacaoService notificacaoService;
 
+    @Autowired
+    private FiltroProfanidadeService filtroProfanidade;
+
+    @Autowired
+    private ArquivoMidiaService midiaService;
+
     public List<ProjetoDTO> listarTodos() {
         List<Projeto> projetos = projetoRepository.findAll();
         return projetos.stream().map(this::converterParaDTO).collect(Collectors.toList());
@@ -59,6 +59,12 @@ public class ProjetoService {
 
     @Transactional
     public ProjetoDTO salvar(ProjetoDTO dto, MultipartFile foto) {
+
+        if (filtroProfanidade.contemProfanidade(dto.getTitulo()) ||
+                filtroProfanidade.contemProfanidade(dto.getDescricao())) {
+            throw new ConteudoImproprioException("Os dados do projeto contêm texto não permitido.");
+        }
+
         Projeto projeto = new Projeto();
         boolean isNovoGrupo = dto.getId() == null;
 
@@ -69,22 +75,25 @@ public class ProjetoService {
 
         projeto.setTitulo(dto.getTitulo());
         projeto.setDescricao(dto.getDescricao());
+        projeto.setCategoria(dto.getCategoria());
+        projeto.setTecnologias(dto.getTecnologias());
+
         if (isNovoGrupo) {
-            projeto.setDataInicio(new Date()); // Data atual automaticamente
+            projeto.setDataInicio(new Date());
         } else {
             projeto.setDataInicio(dto.getDataInicio());
         }
         projeto.setDataEntrega(dto.getDataEntrega());
         if (isNovoGrupo) {
-            projeto.setStatus("Em planejamento"); // Status padrão
+            projeto.setStatus("Em planejamento");
         } else {
             projeto.setStatus(dto.getStatus());
         }
 
         if (foto != null && !foto.isEmpty()) {
             try {
-                String fileName = salvarFoto(foto);
-                projeto.setImagemUrl(fileName);
+                String urlCloudinary = midiaService.upload(foto);
+                projeto.setImagemUrl(urlCloudinary); // Salva a URL completa
 
             } catch (IOException e) {
                 System.err.println("[ERROR] Erro ao salvar a foto do projeto: " + e.getMessage());
@@ -153,7 +162,6 @@ public class ProjetoService {
                 try {
                     enviarConvite(projeto.getId(), alunoId, autorId);
                 } catch (Exception e) {
-                    // Log do erro mas não interrompe o processo
                     System.out.println("Erro ao enviar convite para aluno " + alunoId + ": " + e.getMessage());
                 }
             }
@@ -379,13 +387,6 @@ public class ProjetoService {
         System.out.println("[DEBUG] Projeto deletado com sucesso");
     }
 
-    public void deletar(Long id) {
-        if (!projetoRepository.existsById(id)) {
-            throw new EntityNotFoundException("Projeto não encontrado com id: " + id);
-        }
-        projetoRepository.deleteById(id);
-    }
-
     private ProjetoDTO converterParaDTO(Projeto projeto) {
         ProjetoDTO dto = new ProjetoDTO();
 
@@ -395,8 +396,17 @@ public class ProjetoService {
         dto.setDataInicio(projeto.getDataInicio());
         dto.setDataEntrega(projeto.getDataEntrega());
         dto.setStatus(projeto.getStatus());
+        dto.setCategoria(projeto.getCategoria());
+        dto.setTecnologias(projeto.getTecnologias());
 
-        dto.setImagemUrl(projeto.getImagemUrl());
+        String nomeFoto = projeto.getImagemUrl();
+        if (nomeFoto != null && !nomeFoto.isBlank()) {
+            dto.setImagemUrl(nomeFoto);
+        } else {
+            dto.setImagemUrl("/images/default-project.jpg");
+        }
+
+        dto.setDataCriacao(projeto.getDataCriacao());
         dto.setDataCriacao(projeto.getDataCriacao());
         dto.setMaxMembros(projeto.getMaxMembros());
         dto.setGrupoPrivado(projeto.getGrupoPrivado());
@@ -432,11 +442,7 @@ public class ProjetoService {
             membroDTO.setUsuarioId(membro.getUsuario().getId());
             membroDTO.setUsuarioNome(membro.getUsuario().getNome());
             membroDTO.setUsuarioEmail(membro.getUsuario().getEmail());
-
-            // --- CORREÇÃO APLICADA AQUI ---
             membroDTO.setUsuarioFotoPerfil(membro.getUsuario().getFotoPerfil());
-            // --------------------------------
-
             membroDTO.setRole(membro.getRole());
             membroDTO.setDataEntrada(membro.getDataEntrada());
             membroDTO.setConvidadoPorNome(membro.getConvidadoPor() != null ?
@@ -449,7 +455,7 @@ public class ProjetoService {
             convitesPendentes = conviteProjetoRepository
                     .findByProjetoIdAndStatus(projeto.getId(), ConviteProjeto.StatusConvite.PENDENTE);
         } catch (Exception e) {
-            convitesPendentes = List.of(); // Lista vazia em caso de erro
+            convitesPendentes = List.of();
         }
 
         dto.setConvitesPendentes(convitesPendentes.stream().map(convite -> {
@@ -464,46 +470,6 @@ public class ProjetoService {
         }).collect(Collectors.toList()));
 
         return dto;
-    }
-
-    private String salvarFoto(MultipartFile foto) throws IOException {
-        if (foto.isEmpty()) {
-            throw new IOException("Arquivo de imagem está vazio");
-        }
-
-        // Validar tipo de arquivo
-        String contentType = foto.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IOException("Arquivo deve ser uma imagem válida");
-        }
-
-        // Criar nome único para o arquivo
-        String originalFilename = foto.getOriginalFilename();
-        if (originalFilename == null) {
-            originalFilename = "image.jpg";
-        }
-
-        String cleanFilename = StringUtils.cleanPath(originalFilename);
-        String fileName = System.currentTimeMillis() + "_" + cleanFilename;
-
-        // Criar diretório se não existir
-        Path uploadPath = Paths.get(UPLOAD_DIR);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
-
-        // Caminho completo do arquivo
-        Path filePath = uploadPath.resolve(fileName);
-
-        // Salvar arquivo
-        try {
-            Files.copy(foto.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            System.err.println("[ERROR] Erro ao salvar arquivo: " + e.getMessage());
-            throw new IOException("Erro ao salvar arquivo no servidor", e);
-        }
-
-        return fileName;
     }
 
     private boolean isAdmin(Long projetoId, Long usuarioId) {

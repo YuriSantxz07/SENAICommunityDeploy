@@ -5,20 +5,17 @@ import com.SenaiCommunity.BackEnd.DTO.ProfessorSaidaDTO;
 import com.SenaiCommunity.BackEnd.Entity.Professor;
 import com.SenaiCommunity.BackEnd.Entity.Projeto;
 import com.SenaiCommunity.BackEnd.Entity.Role;
+import com.SenaiCommunity.BackEnd.Exception.ConteudoImproprioException;
 import com.SenaiCommunity.BackEnd.Repository.ProfessorRepository;
 import com.SenaiCommunity.BackEnd.Repository.RoleRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +37,8 @@ public class ProfessorService {
     @Autowired
     private ArquivoMidiaService midiaService;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    @Autowired
+    private FiltroProfanidadeService filtroProfanidade;
 
     // Conversões
 
@@ -68,18 +65,11 @@ public class ProfessorService {
         dto.setBio(professor.getBio());
         dto.setDataNascimento(professor.getDataNascimento());
 
-        String urlFoto = professor.getFotoPerfil();
-
-        if (urlFoto != null && urlFoto.startsWith("http")) {
-            // 1. Se for uma URL completa (do Cloudinary), usa ela diretamente.
-            dto.setFotoPerfil(urlFoto);
-        } else if (urlFoto != null && !urlFoto.isBlank()) {
-            // 2. Se for um nome de arquivo antigo (do sistema local), mantém a rota antiga.
-            dto.setFotoPerfil("/api/arquivos/" + urlFoto);
+        String nomeFoto = professor.getFotoPerfil();
+        if (nomeFoto != null && !nomeFoto.isBlank()) {
+            dto.setFotoPerfil(nomeFoto);
         } else {
-            // 3. Se for nulo ou vazio, usa a imagem padrão correta.
-            //    (Vou usar a .jpg para padronizar com o Aluno)
-            dto.setFotoPerfil("/images/default-avatar.jpg"); //
+            dto.setFotoPerfil("/images/default-avatar.png");
         }
 
         dto.setProjetosOrientados(
@@ -92,6 +82,11 @@ public class ProfessorService {
     }
 
     public ProfessorSaidaDTO criarProfessorComFoto(ProfessorEntradaDTO dto, MultipartFile foto) {
+        if (filtroProfanidade.contemProfanidade(dto.getNome()) ||
+                filtroProfanidade.contemProfanidade(dto.getFormacao())) {
+            throw new ConteudoImproprioException("Os dados do professor contêm texto não permitido.");
+        }
+
         Professor professor = toEntity(dto);
         professor.setDataCadastro(LocalDateTime.now());
         professor.setTipoUsuario("PROFESSOR");
@@ -102,10 +97,10 @@ public class ProfessorService {
 
         if (foto != null && !foto.isEmpty()) {
             try {
-                String fileName = midiaService.upload(foto); // Agora chama o método corrigido
-                professor.setFotoPerfil(fileName);
+                String urlCloudinary = midiaService.upload(foto);
+                professor.setFotoPerfil(urlCloudinary);
             } catch (IOException e) {
-                throw new RuntimeException("Erro ao salvar a foto do professor", e);
+                throw new RuntimeException("Erro ao salvar a foto do professor: " + e.getMessage(), e);
             }
         } else {
             professor.setFotoPerfil(null);
@@ -114,18 +109,6 @@ public class ProfessorService {
         Professor salvo = professorRepository.save(professor);
         return toDTO(salvo);
     }
-
-//    private String salvarFoto(MultipartFile foto) throws IOException {
-//        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
-//        Path diretorioDeUpload = Paths.get(uploadDir);
-//
-//        // Garante que o diretório de uploads exista, criando-o se necessário
-//        Files.createDirectories(diretorioDeUpload);
-//
-//        Path caminhoDoArquivo = diretorioDeUpload.resolve(nomeArquivo);
-//        foto.transferTo(caminhoDoArquivo);
-//        return nomeArquivo;
-//    }
 
     public List<ProfessorSaidaDTO> listarTodos() {
         return professorRepository.findAll()
@@ -140,17 +123,40 @@ public class ProfessorService {
         return toDTO(professor);
     }
 
-    public ProfessorSaidaDTO atualizarProfessor(Long id, ProfessorEntradaDTO dto) {
+    @Transactional
+    public ProfessorSaidaDTO atualizarProfessor(Long id, ProfessorEntradaDTO dto, MultipartFile foto) throws IOException {
+        if (filtroProfanidade.contemProfanidade(dto.getNome()) ||
+                filtroProfanidade.contemProfanidade(dto.getFormacao())) {
+            throw new ConteudoImproprioException("Os dados do professor contêm texto não permitido.");
+        }
+
         Professor professor = professorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Professor não encontrado"));
 
         professor.setNome(dto.getNome());
         professor.setEmail(dto.getEmail());
-        professor.setSenha(passwordEncoder.encode(dto.getSenha()));
-        professor.setFotoPerfil(dto.getFotoPerfil());
         professor.setFormacao(dto.getFormacao());
         professor.setCodigoSn(dto.getCodigoSn());
         professor.setDataNascimento(dto.getDataNascimento());
+
+        if (dto.getSenha() != null && !dto.getSenha().isBlank()) {
+            professor.setSenha(passwordEncoder.encode(dto.getSenha()));
+        }
+
+        if (foto != null && !foto.isEmpty()) {
+            String oldFotoUrl = professor.getFotoPerfil();
+
+            String newFotoUrl = midiaService.upload(foto);
+            professor.setFotoPerfil(newFotoUrl);
+
+            if (oldFotoUrl != null && !oldFotoUrl.isBlank()) {
+                try {
+                    midiaService.deletar(oldFotoUrl);
+                } catch (Exception e) {
+                    System.err.println("AVISO: Falha ao deletar foto antiga do Cloudinary: " + oldFotoUrl);
+                }
+            }
+        }
 
         Professor atualizado = professorRepository.save(professor);
         return toDTO(atualizado);
