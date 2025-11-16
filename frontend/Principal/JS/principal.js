@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // =================================================================
 // LÓGICA GLOBAL (Executa em TODAS as páginas)
 // =================================================================
-const backendUrl = "senaicommunitydeploy-production.up.railway.app";
+const backendUrl = "https://senaicommunitydeploy-production.up.railway.app";
 const jwtToken = localStorage.getItem("token");
 const defaultAvatarUrl = `${backendUrl}/images/default-avatar.jpg`;
 const messageBadgeElement = document.getElementById("message-badge");
