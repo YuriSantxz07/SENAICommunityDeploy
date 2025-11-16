@@ -37,6 +37,9 @@ public class AlunoService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private ArquivoMidiaService midiaService;
+
     @Value("${file.upload-dir}")
     private String uploadDir;
 
@@ -65,13 +68,17 @@ public class AlunoService {
         dto.setBio(aluno.getBio());
         dto.setDataNascimento(aluno.getDataNascimento());
 
-        String nomeFoto = aluno.getFotoPerfil();
-        if (nomeFoto != null && !nomeFoto.isBlank()) {
-            // Se o aluno TEM uma foto, montamos a URL para o ArquivoController.
-            dto.setFotoPerfil("/api/arquivos/" + nomeFoto);
+        String urlFoto = aluno.getFotoPerfil();
+
+        if (urlFoto != null && urlFoto.startsWith("http")) {
+            // 1. Se for uma URL completa (do Cloudinary), usa ela diretamente.
+            dto.setFotoPerfil(urlFoto);
+        } else if (urlFoto != null && !urlFoto.isBlank()) {
+            // 2. Se for um nome de arquivo antigo (do sistema local), mantém a rota antiga.
+            dto.setFotoPerfil("/api/arquivos/" + urlFoto);
         } else {
-            // Se o aluno NÃO TEM foto, usamos a URL do arquivo estático padrão.
-            dto.setFotoPerfil("/images/default-avatar.jpg");
+            // 3. Se for nulo ou vazio, usa a imagem padrão correta.
+            dto.setFotoPerfil("/images/default-avatar.jpg"); //
         }
 
         dto.setProjetos(
@@ -94,8 +101,8 @@ public class AlunoService {
 
         if (foto != null && !foto.isEmpty()) {
             try {
-                // A chamada para salvarFoto agora usa a nova lógica
-                String fileName = salvarFoto(foto);
+                // A chamada para salvarFoto no cloudinary
+                String fileName = midiaService.upload(foto);
                 aluno.setFotoPerfil(fileName);
             } catch (IOException e) {
                 throw new RuntimeException("Erro ao salvar a foto do aluno", e);
@@ -108,19 +115,19 @@ public class AlunoService {
         return toDTO(salvo);
     }
 
-    private String salvarFoto(MultipartFile foto) throws IOException {
-        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
-        Path diretorioDeUpload = Paths.get(uploadDir);
-
-        // Garante que o diretório de uploads exista
-        if (Files.notExists(diretorioDeUpload)) {
-            Files.createDirectories(diretorioDeUpload);
-        }
-
-        Path caminhoDoArquivo = diretorioDeUpload.resolve(nomeArquivo);
-        foto.transferTo(caminhoDoArquivo);
-        return nomeArquivo;
-    }
+//    private String salvarFoto(MultipartFile foto) throws IOException {
+//        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
+//        Path diretorioDeUpload = Paths.get(uploadDir);
+//
+//        // Garante que o diretório de uploads exista
+//        if (Files.notExists(diretorioDeUpload)) {
+//            Files.createDirectories(diretorioDeUpload);
+//        }
+//
+//        Path caminhoDoArquivo = diretorioDeUpload.resolve(nomeArquivo);
+//        foto.transferTo(caminhoDoArquivo);
+//        return nomeArquivo;
+//    }
 
 
     public List<AlunoSaidaDTO> listarTodos() {

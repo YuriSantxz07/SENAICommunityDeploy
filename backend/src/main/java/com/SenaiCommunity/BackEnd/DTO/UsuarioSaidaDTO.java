@@ -20,8 +20,6 @@ public class UsuarioSaidaDTO {
     private LocalDate dataNascimento;
     private LocalDateTime dataCadastro;
 
-    // Código Corrigido em UsuarioSaidaDTO.java
-
     public UsuarioSaidaDTO(Usuario usuario) {
         this.id = usuario.getId();
         this.nome = usuario.getNome();
@@ -31,12 +29,17 @@ public class UsuarioSaidaDTO {
         this.dataNascimento = usuario.getDataNascimento();
         this.dataCadastro = usuario.getDataCadastro();
 
-        String nomeFoto = usuario.getFotoPerfil();
-        if (nomeFoto != null && !nomeFoto.isBlank()) {
-            this.urlFotoPerfil = "/api/arquivos/" + nomeFoto;
+        String urlFoto = usuario.getFotoPerfil();
+
+        if (urlFoto != null && urlFoto.startsWith("http")) {
+            // 1. Se for uma URL completa (do Cloudinary), usa ela diretamente.
+            this.urlFotoPerfil = urlFoto;
+        } else if (urlFoto != null && !urlFoto.isBlank()) {
+            // 2. Se for um nome de arquivo antigo (do sistema local), mantém a rota antiga.
+            this.urlFotoPerfil = "/api/arquivos/" + urlFoto;
         } else {
-            // CORREÇÃO: Aponte para a sua imagem padrão
-            this.urlFotoPerfil = "/images/default-avatar.jpg";
+            // 3. Se for nulo ou vazio, usa a imagem padrão correta.
+            this.urlFotoPerfil = "/images/default-avatar.jpg"; //
         }
     }
 }

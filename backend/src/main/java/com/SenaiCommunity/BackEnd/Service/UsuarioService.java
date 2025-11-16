@@ -39,6 +39,9 @@ public class UsuarioService {
     @Autowired
     private UserStatusService userStatusService;
 
+    @Autowired
+    private ArquivoMidiaService midiaService;
+
     @Value("${file.upload-dir}")
     private String uploadDir;
 
@@ -88,9 +91,12 @@ public class UsuarioService {
         }
 
         Usuario usuario = getUsuarioFromAuthentication(authentication);
-        String nomeArquivo = salvarFoto(foto);
-        // Assumindo que o campo é 'urlFotoPerfil'. Se for 'fotoPerfil', ajuste aqui.
-        usuario.setFotoPerfil(nomeArquivo);
+
+        // 1. Faz o upload para o Cloudinary
+        String urlDaImagem = midiaService.upload(foto);
+
+        // 2. Salva a URL COMPLETA do Cloudinary no banco
+        usuario.setFotoPerfil(urlDaImagem);
 
         Usuario usuarioAtualizado = usuarioRepository.save(usuario);
         return new UsuarioSaidaDTO(usuarioAtualizado);
@@ -116,20 +122,20 @@ public class UsuarioService {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o email do token: " + email));
     }
 
-    private String salvarFoto(MultipartFile foto) throws IOException {
-        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
-
-        // Garante que o diretório de upload exista
-        Path diretorioUpload = Paths.get(uploadDir);
-        Files.createDirectories(diretorioUpload);
-
-        Path caminhoDoArquivo = diretorioUpload.resolve(nomeArquivo);
-        foto.transferTo(caminhoDoArquivo);
-
-        // Retorna APENAS o nome do arquivo.
-        // O restante da URL será montado no frontend ou no DTO.
-        return nomeArquivo;
-    }
+//    private String salvarFoto(MultipartFile foto) throws IOException {
+//        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
+//
+//        // Garante que o diretório de upload exista
+//        Path diretorioUpload = Paths.get(uploadDir);
+//        Files.createDirectories(diretorioUpload);
+//
+//        Path caminhoDoArquivo = diretorioUpload.resolve(nomeArquivo);
+//        foto.transferTo(caminhoDoArquivo);
+//
+//        // Retorna APENAS o nome do arquivo.
+//        // O restante da URL será montado no frontend ou no DTO.
+//        return nomeArquivo;
+//    }
 
     /**
      * Busca usuários por nome e determina o status de amizade com o usuário logado.

@@ -37,6 +37,9 @@ public class ProfessorService {
     @Autowired
     private RoleRepository roleRepository;
 
+    @Autowired
+    private ArquivoMidiaService midiaService;
+
     @Value("${file.upload-dir}")
     private String uploadDir;
 
@@ -65,13 +68,18 @@ public class ProfessorService {
         dto.setBio(professor.getBio());
         dto.setDataNascimento(professor.getDataNascimento());
 
-        String nomeFoto = professor.getFotoPerfil();
-        if (nomeFoto != null && !nomeFoto.isBlank()) {
-            // Se o professor TEM uma foto, montamos a URL para o ArquivoController.
-            dto.setFotoPerfil("/api/arquivos/" + nomeFoto);
+        String urlFoto = professor.getFotoPerfil();
+
+        if (urlFoto != null && urlFoto.startsWith("http")) {
+            // 1. Se for uma URL completa (do Cloudinary), usa ela diretamente.
+            dto.setFotoPerfil(urlFoto);
+        } else if (urlFoto != null && !urlFoto.isBlank()) {
+            // 2. Se for um nome de arquivo antigo (do sistema local), mantém a rota antiga.
+            dto.setFotoPerfil("/api/arquivos/" + urlFoto);
         } else {
-            // Se o professor NÃO TEM foto, usamos a URL do arquivo estático padrão.
-            dto.setFotoPerfil("/images/default-avatar.png");
+            // 3. Se for nulo ou vazio, usa a imagem padrão correta.
+            //    (Vou usar a .jpg para padronizar com o Aluno)
+            dto.setFotoPerfil("/images/default-avatar.jpg"); //
         }
 
         dto.setProjetosOrientados(
@@ -94,7 +102,7 @@ public class ProfessorService {
 
         if (foto != null && !foto.isEmpty()) {
             try {
-                String fileName = salvarFoto(foto); // Agora chama o método corrigido
+                String fileName = midiaService.upload(foto); // Agora chama o método corrigido
                 professor.setFotoPerfil(fileName);
             } catch (IOException e) {
                 throw new RuntimeException("Erro ao salvar a foto do professor", e);
@@ -107,17 +115,17 @@ public class ProfessorService {
         return toDTO(salvo);
     }
 
-    private String salvarFoto(MultipartFile foto) throws IOException {
-        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
-        Path diretorioDeUpload = Paths.get(uploadDir);
-
-        // Garante que o diretório de uploads exista, criando-o se necessário
-        Files.createDirectories(diretorioDeUpload);
-
-        Path caminhoDoArquivo = diretorioDeUpload.resolve(nomeArquivo);
-        foto.transferTo(caminhoDoArquivo);
-        return nomeArquivo;
-    }
+//    private String salvarFoto(MultipartFile foto) throws IOException {
+//        String nomeArquivo = System.currentTimeMillis() + "_" + StringUtils.cleanPath(foto.getOriginalFilename());
+//        Path diretorioDeUpload = Paths.get(uploadDir);
+//
+//        // Garante que o diretório de uploads exista, criando-o se necessário
+//        Files.createDirectories(diretorioDeUpload);
+//
+//        Path caminhoDoArquivo = diretorioDeUpload.resolve(nomeArquivo);
+//        foto.transferTo(caminhoDoArquivo);
+//        return nomeArquivo;
+//    }
 
     public List<ProfessorSaidaDTO> listarTodos() {
         return professorRepository.findAll()
