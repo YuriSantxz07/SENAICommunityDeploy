@@ -4,7 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // -----------------------------------------------------------------
   document.addEventListener("globalScriptsLoaded", (e) => {
     const currentUser = window.currentUser;
-
     const ProjetosPage = {
       // --- ESTADO (Específico da Página) ---
       state: {
@@ -18,7 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
         grid: document.getElementById("projetos-grid"),
         searchInput: document.getElementById("project-search-input"),
 
-        // Modal
         modalOverlay: document.getElementById("novo-projeto-modal"),
         openModalBtn: document.getElementById("btn-new-project"),
         closeModalBtn: document.querySelector(
@@ -30,19 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
         projImagemInput: document.getElementById("proj-imagem"),
         modalUserAvatar: document.getElementById("modal-user-avatar"),
         modalUserName: document.getElementById("modal-user-name"),
-        
-        // Contadores
         connectionsCount: document.getElementById("connections-count"),
         projectsCount: document.getElementById("projects-count"),
-
-        // Lista de amigos (agora usando a classe do principal.html)
-        onlineFriendsList: document.getElementById("online-friends-list"),
       },
 
       // -----------------------------------------------------------------
       // INICIALIZAÇÃO (Específica da Página)
       // -----------------------------------------------------------------
-     async init() {
+      async init() {
         if (!currentUser) {
           console.error("Página de Projetos: Usuário não carregado.");
           return;
@@ -52,135 +45,14 @@ document.addEventListener("DOMContentLoaded", () => {
           this.elements.connectionsCount.textContent =
             window.userFriends?.length || "0";
         }
-
-        this.renderOnlineFriends();
-        
         await this.fetchProjetos();
         this.setupEventListeners();
-        
         document.addEventListener("friendsListUpdated", () => {
           if (this.elements.connectionsCount) {
             this.elements.connectionsCount.textContent =
               window.userFriends?.length || "0";
           }
-          this.renderOnlineFriends();        
         });
-      },
-
-      // -----------------------------------------------------------------
-      // NOVO: CONFIGURAÇÃO DA SEÇÃO DE AMIGOS
-      // -----------------------------------------------------------------
-      setupFriendsSection() {
-        if (!this.elements.friendsToggleBtn || !this.elements.friendsSidebar) return;
-
-        // Toggle da sidebar de amigos
-        this.elements.friendsToggleBtn.addEventListener("click", () => {
-          this.elements.friendsSidebar.classList.toggle("collapsed");
-          const icon = this.elements.friendsToggleBtn.querySelector("i");
-          if (icon) {
-            icon.classList.toggle("fa-chevron-left");
-            icon.classList.toggle("fa-chevron-right");
-          }
-        });
-
-      },
-
-      // NOVO: Renderizar lista de amigos online e todos os amigos
-      renderFriendsLists() {
-        this.renderOnlineFriends();
-        this.renderAllFriends();
-      },
-
-      renderOnlineFriends() {
-        if (!this.elements.onlineFriendsList) return;
-        
-        // Usa as variáveis globais do principal.js
-        const onlineFriends = (window.userFriends || []).filter(friend => 
-          (window.latestOnlineEmails || []).includes(friend.email)
-        );
-
-        this.elements.onlineFriendsList.innerHTML = "";
-        
-        if (onlineFriends.length === 0) {
-          this.elements.onlineFriendsList.innerHTML = 
-            '<p class="empty-state">Nenhum amigo online</p>';
-          return;
-        }
-
-        onlineFriends.forEach(friend => {
-          const friendElement = this.createFriendElement(friend);
-          this.elements.onlineFriendsList.appendChild(friendElement);
-        });
-      },
-
-      // Função para criar o HTML do amigo (idêntica ao principal.js)
-      createFriendElement(friend) {
-        const friendElement = document.createElement("div");
-        friendElement.className = "friend-item";
-
-        const friendId = friend.idUsuario;
-        const friendAvatar = friend.fotoPerfil 
-          ? (friend.fotoPerfil.startsWith('http') 
-              ? friend.fotoPerfil 
-              : `${window.backendUrl}/api/arquivos/${friend.fotoPerfil}`) 
-          : window.defaultAvatarUrl;
-
-        friendElement.innerHTML = `
-          <a href="perfil.html?id=${friendId}" class="friend-item-link">
-            <div class="avatar"><img src="${friendAvatar}" alt="Avatar de ${friend.nome}" onerror="this.src='${window.defaultAvatarUrl}';"></div>
-            <span class="friend-name">${friend.nome}</span>
-          </a>
-          <div class="status online"></div>
-        `;
-
-        return friendElement;
-      },
-
-      renderAllFriends() {
-        if (!this.elements.allFriendsList) return;
-        
-        const friends = window.userFriends || [];
-
-        this.elements.allFriendsList.innerHTML = "";
-        
-        if (friends.length === 0) {
-          this.elements.allFriendsList.innerHTML = 
-            '<p class="empty-state">Você ainda não tem amigos</p>';
-          return;
-        }
-
-        friends.forEach(friend => {
-          const friendElement = this.createFriendElement(friend, false);
-          this.elements.allFriendsList.appendChild(friendElement);
-        });
-      },
-
-    createFriendElement(friend) {
-    const friendElement = document.createElement("div");
-    friendElement.className = "friend-item";
-
-    const friendId = friend.idUsuario;
-    const friendAvatar = friend.fotoPerfil 
-      ? (friend.fotoPerfil.startsWith('http') 
-          ? friend.fotoPerfil 
-          : `${window.backendUrl}/api/arquivos/${friend.fotoPerfil}`) 
-      : window.defaultAvatarUrl;
-
-    // Esta é a estrutura exata do 'principal.js'
-    friendElement.innerHTML = `
-      <a href="perfil.html?id=${friendId}" class="friend-item-link">
-        <div class="avatar"><img src="${friendAvatar}" alt="Avatar de ${friend.nome}" onerror="this.src='${window.defaultAvatarUrl}';"></div>
-        <span class="friend-name">${friend.nome}</span>
-      </a>
-      <div class="status online"></div>
-    `;
-
-    return friendElement;
-  },
-
-      inviteToProject(friendId, friendName) {
-        window.showNotification(`Convite enviado para ${friendName}`, "success");
-                console.log(`Convidar amigo ${friendId} (${friendName}) para projeto`);
       },
 
       // -----------------------------------------------------------------
@@ -245,15 +117,15 @@ document.addEventListener("DOMContentLoaded", () => {
             .join("");
 
           card.innerHTML = `
-            <div class="projeto-imagem" style="background-image: url('${imageUrl}')"></div>
-            <div class="projeto-conteudo">
-              <h3>${proj.titulo}</h3>
-              <p>${
-                proj.descricao ||
-                "Este projeto não possui uma descrição."
-              }</p>
-              <div class="projeto-membros">${membrosHtml}</div>
-            </div>`;
+                        <div class="projeto-imagem" style="background-image: url('${imageUrl}')"></div>
+                        <div class="projeto-conteudo">
+                            <h3>${proj.titulo}</h3>
+                            <p>${
+                              proj.descricao ||
+                              "Este projeto não possui uma descrição."
+                            }</p>
+                            <div class="projeto-membros">${membrosHtml}</div>
+                        </div>`;
           grid.appendChild(card);
         });
       },
@@ -310,11 +182,12 @@ document.addEventListener("DOMContentLoaded", () => {
             this.handlers.closeModal.call(this);
             await this.fetchProjetos();
           } catch (error) {
-            let errorMessage = "Falha ao criar o projeto.";
+           let errorMessage = "Falha ao criar o projeto.";
             if (error.response && error.response.data && error.response.data.message) {
-              errorMessage = error.response.data.message;
-            }
-            window.showNotification(errorMessage, "error");
+                // Pega a mensagem de "Conteúdo impróprio..."
+                errorMessage = error.response.data.message;
+              }
+              window.showNotification(errorMessage, "error");
           } finally {
             btn.disabled = false;
             btn.textContent = "Publicar Projeto";
@@ -376,6 +249,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- INICIALIZAÇÃO DA PÁGINA ---
     ProjetosPage.init();
-    window.ProjetosPage = ProjetosPage; // Torna global para acesso pelos event listeners
   });
 });

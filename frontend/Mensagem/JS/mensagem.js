@@ -29,8 +29,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let mediaRecorder;
   let audioChunks = [];
   let isRecording = false;
-  let timerInterval; 
-  let startTime;   
 
   // --- VARIÁVEIS GLOBAIS (Definidas pelo principal.js) ---
   let currentUser;
@@ -54,15 +52,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setupChatEventListeners();
   }
 
-document.addEventListener("globalScriptsLoaded", (e) => {
-  initChatPage(e.detail);
-  document.addEventListener("friendsListUpdated", () => {
-    userFriends = window.userFriends;
-    if (elements.addConvoModal.style.display === "flex") {
-      renderAvailableUsers();
-    }
-  });
-});
+  document.addEventListener("globalScriptsLoaded", (e) =>
+    initChatPage(e.detail)
+  );
 
   /**
    * Busca apenas as conversas existentes.
@@ -156,47 +148,58 @@ document.addEventListener("globalScriptsLoaded", (e) => {
           "Amigo não encontrado para iniciar conversa:",
           otherUserId
         );
+        // Notifica o usuário que o contato não foi encontrado
         window.showNotification(
           "Não foi possível encontrar os dados deste contato.",
           "error"
         );
-        return; 
+        return; // Impede a continuação se os dados do amigo não existem
       }
 
+      // Usa os dados do amigo para criar um objeto temporário similar ao ConversaResumoDTO
       convoData = {
         outroUsuarioId: friendData.idUsuario,
         nomeOutroUsuario: friendData.nome,
+        // Constrói a URL do avatar a partir do AmigoDTO
         avatarUrl: friendAvatar,
-        conteudoUltimaMensagem: null, 
-        dataEnvioUltimaMensagem: new Date().toISOString(), 
+        // Valores padrão para uma nova conversa
+        conteudoUltimaMensagem: null, // Será "Inicie a conversa..." no card
+        dataEnvioUltimaMensagem: new Date().toISOString(), // Data atual
         remetenteUltimaMensagemId: null,
       };
       isNewConversation = true;
     }
 
+    // Define a conversa ativa globalmente
     activeConversation = {
       usuarioId: otherUserId,
-      nome: convoData.nomeOutroUsuario || convoData.nome, 
-      avatar: convoData.avatarUrl || defaultAvatarUrl,
+      nome: convoData.nomeOutroUsuario || convoData.nome, // Garante que pegue o nome correto
+      avatar: convoData.avatarUrl || defaultAvatarUrl, // Garante que pegue o avatar correto
     };
 
     if (isNewConversation) {
+      // Verifica se um card para este usuário JÁ existe na lista (evita duplicatas)
       const existingCard = document.querySelector(
         `.convo-card[data-user-id="${otherUserId}"]`
       );
       if (!existingCard) {
+        // Cria e adiciona o card NOVO na lista da interface
         const tempCard = createConversationCardElement(convoData);
         elements.conversationsList.prepend(tempCard); // Adiciona no topo
       }
+      // Adiciona a "conversa" temporária ao array 'conversas' para consistência da UI
+      // A próxima chamada a fetchConversations trará os dados reais se mensagens forem enviadas.
       if (!conversas.some((c) => c.outroUsuarioId === otherUserId)) {
         conversas.unshift(convoData);
       }
     }
 
+    // Atualiza a UI: Cabeçalho e destaque do card
     renderChatHeader();
     document
       .querySelectorAll(".convo-card")
       .forEach((card) => card.classList.remove("selected"));
+    // Agora o seletor DEVE encontrar o card (existente ou o recém-criado)
     const selectedCard = document.querySelector(
       `.convo-card[data-user-id="${otherUserId}"]`
     );
@@ -209,6 +212,7 @@ document.addEventListener("globalScriptsLoaded", (e) => {
       );
     }
     try {
+      // Chama o novo endpoint POST que criamos no ChatRestController
       await axios.post(
         `${backendUrl}/api/chat/privado/marcar-lida/${otherUserId}`
       );
@@ -218,17 +222,21 @@ document.addEventListener("globalScriptsLoaded", (e) => {
       }
     } catch (error) {
       console.error("Erro ao marcar conversa como lida:", error);
+      // Continua mesmo se falhar em marcar como lida, para o usuário ver as mensagens
     }
 
     elements.chatMessagesContainer.innerHTML =
       '<div class="empty-chat">Carregando histórico...</div>';
 
+    // Busca e renderiza as mensagens (buscará lista vazia para nova conversa)
     await fetchMessages(otherUserId); //
 
+    // Atualiza a contagem de mensagens não lidas (global)
     if (typeof fetchAndUpdateUnreadCount === "function") {
       fetchAndUpdateUnreadCount();
     }
 
+    // Habilita a área de input
     elements.messageInput.disabled = false;
     elements.chatSendBtn.disabled = false;
     elements.recordAudioBtn.disabled = false; // Habilita o botão de gravar
@@ -249,6 +257,7 @@ document.addEventListener("globalScriptsLoaded", (e) => {
     }
 
     try {
+      // USA O NOVO ENDPOINT DO BACKEND (ChatRestController)
       const response = await axios.get(
         `${backendUrl}/api/chat/privado/historico/${otherUserId}`
       );
@@ -595,24 +604,6 @@ document.addEventListener("globalScriptsLoaded", (e) => {
 
   // --- Funções de Gravação de Áudio ---
   
-  function updateTimerDisplay() {
-      const elapsed = Date.now() - startTime;
-      const totalSeconds = Math.floor(elapsed / 1000);
-      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-      const seconds = String(totalSeconds % 60).padStart(2, '0');
-      
-      const timerElement = elements.recordAudioBtn.querySelector('.audio-timer');
-      if (timerElement) {
-          timerElement.textContent = `${minutes}:${seconds}`;
-      } else {
-          // Se o elemento não existir, cria e insere
-          elements.recordAudioBtn.innerHTML = `
-              <i class="fas fa-stop"></i>
-              <span class="audio-timer">00:00</span>
-          `;
-      }
-  }
-
   /**
    * Inicia a gravação do áudio
    */
@@ -620,21 +611,18 @@ document.addEventListener("globalScriptsLoaded", (e) => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           mediaRecorder = new MediaRecorder(stream);
-          audioChunks = [];
+          audioChunks = []; // Limpa chunks antigos
           
           mediaRecorder.ondataavailable = event => {
               audioChunks.push(event.data);
           };
           
-          mediaRecorder.onstop = stopAndUploadAudio;
+          mediaRecorder.onstop = stopAndUploadAudio; // Define o handler de parada
           
           mediaRecorder.start();
           isRecording = true;
           
-          startTime = Date.now();
-          updateTimerDisplay(); 
-          timerInterval = setInterval(updateTimerDisplay, 1000);
-          
+          // Atualiza UI
           elements.recordAudioBtn.classList.add('recording');
           elements.messageInput.disabled = true;
           elements.messageInput.placeholder = "Gravando áudio...";
@@ -651,19 +639,18 @@ document.addEventListener("globalScriptsLoaded", (e) => {
   async function stopAndUploadAudio() {
       isRecording = false;
       
-      clearInterval(timerInterval); 
-      
+      // Para o stream e o recorder
       if (mediaRecorder) {
           mediaRecorder.stream.getTracks().forEach(track => track.stop()); 
       }
       
-      const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
-      
-      elements.recordAudioBtn.innerHTML = `<i class="fas fa-microphone"></i>`; 
-      
+      // Atualiza UI
       elements.recordAudioBtn.classList.remove('recording');
       elements.messageInput.disabled = false;
       elements.messageInput.placeholder = `Escreva para ${activeConversation.nome}...`;
+      
+      // Cria o Blob final
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
       
       if (audioBlob.size < 1000) {
           console.log("Gravação muito curta, descartada.");
@@ -673,30 +660,38 @@ document.addEventListener("globalScriptsLoaded", (e) => {
       window.showNotification("Enviando áudio...", "info");
 
       const formData = new FormData();
+      
+      // --- CORREÇÃO APLICADA AQUI ---
+      // Usar o construtor 'new URL()' resolve o problema de barras duplas.
+      // Ele junta 'http://localhost:8080/' e '/api/...' de forma inteligente.
       const uploadUrl = new URL('/api/chat/privado/upload', backendUrl).href;
+      // --- FIM DA CORREÇÃO ---
       
       formData.append('file', audioBlob, `audio-message-${Date.now()}.webm`); 
       
       try {
+          // A chamada axios (sem headers) está correta
           const response = await axios.post(uploadUrl, formData);
+          
           const audioUrl = response.data.url;
           
           if (!audioUrl) {
               throw new Error("URL do áudio não recebida do servidor.");
           }
 
+          // Sucesso! Agora envia a URL via WebSocket
           const messageData = {
-              conteudo: audioUrl,
+              conteudo: audioUrl, // Envia a URL como conteúdo
               destinatarioId: activeConversation.usuarioId,
           };
           
-          sendPrivateMessage(messageData);
+          sendPrivateMessage(messageData); // Usa nossa função centralizada
 
       } catch (error) {
           console.error("Erro ao fazer upload do áudio:", error);
           let errorMsg = "Falha ao enviar o áudio.";
           if (error.response && error.response.data && error.response.data.error) {
-              errorMsg = error.response.data.error;
+              errorMsg = error.response.data.error; // Pega erro do back-end (ex: Conteúdo Impróprio)
           }
           window.showNotification(errorMsg, "error");
       }

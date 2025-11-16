@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // =================================================================
 // LÓGICA GLOBAL (Executa em TODAS as páginas)
 // =================================================================
-const backendUrl = "https://senaicommunitydeploy-production.up.railway.app";
+const backendUrl = "senaicommunitydeploy-production.up.railway.app";
 const jwtToken = localStorage.getItem("token");
 const defaultAvatarUrl = `${backendUrl}/images/default-avatar.jpg`;
 const messageBadgeElement = document.getElementById("message-badge");
@@ -330,14 +330,14 @@ function atualizarStatusDeAmigosNaUI() {
             const friendElement = document.createElement('div');
             friendElement.className = 'friend-item';
             
-            const friendAvatar = friend.fotoPerfil 
-                ? (friend.fotoPerfil.startsWith('http') 
-                    ? friend.fotoPerfil 
-                    : `${backendUrl}/api/arquivos/${friend.fotoPerfil}`) 
-                : defaultAvatarUrl;
+            // CORREÇÃO: O seu AmigoDTO usa 'fotoPerfil'
+            // e o seu ArquivoController serve de '/api/arquivos/'
+            const friendAvatar = friend.fotoPerfil ? `${backendUrl}/api/arquivos/${friend.fotoPerfil}` : defaultAvatarUrl;
             
+            // CORREÇÃO: Pega o ID do usuário (amigo) do DTO
             const friendId = friend.idUsuario; 
 
+            // CORREÇÃO: Adiciona a tag <a> em volta do avatar e nome
             friendElement.innerHTML = `
                 <a href="perfil.html?id=${friendId}" class="friend-item-link">
                     <div class="avatar"><img src="${friendAvatar}" alt="Avatar de ${friend.nome}" onerror="this.src='${defaultAvatarUrl}';"></div>

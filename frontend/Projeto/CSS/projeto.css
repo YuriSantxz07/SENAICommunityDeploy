@@ -163,33 +163,3 @@
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); text-align: right; }
 .btn-publish { background-color: var(--accent-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .btn-publish:hover { background-color: var(--accent-secondary); }
-
-
-/* Layout principal com sidebar */
-.main-layout {
-  display: flex;
-  gap: 1rem;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.projects-main {
-  flex: 1;
-}
-
-/* Responsividade */
-@media (max-width: 768px) {
-  .friends-sidebar {
-    position: fixed;
-    right: 0;
-    top: 0;
-    height: 100vh;
-    z-index: 1000;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .friends-sidebar:not(.collapsed) {
-    transform: translateX(0);
-  }
-}
