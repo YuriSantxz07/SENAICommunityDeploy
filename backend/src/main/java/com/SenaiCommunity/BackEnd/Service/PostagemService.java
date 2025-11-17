@@ -156,7 +156,7 @@ public class PostagemService {
     }
 
     public List<PostagemSaidaDTO> buscarPostagensPublicas() {
-        List<Postagem> posts = postagemRepository.findTop50ByOrderByDataPostagemDesc();
+        List<Postagem> posts = postagemRepository.findTop20ByOrderByDataPostagemDesc();
 
         // Converte cada Postagem da lista para um PostagemSaidaDTO
         return posts.stream()
