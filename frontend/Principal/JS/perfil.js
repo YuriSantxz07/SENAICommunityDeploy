@@ -2,20 +2,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- CONFIGURAÇÕES E VARIÁVEIS GLOBAIS ---
   const backendUrl = "https://senaicommunitydeploy-production.up.railway.app";
   const jwtToken = localStorage.getItem("token");
+  // Alterado para placehold.co para corrigir o erro de imagem
   const defaultAvatarUrl = `${backendUrl}/images/default-avatar.jpg`;
   const messageBadgeElement = document.getElementById("message-badge");
-  
+
   let stompClient = null;
   let currentUser = null;
   let profileUser = null;
   let userFriends = [];
   let friendsLoaded = false;
   let latestOnlineEmails = [];
-  
+
   // Variáveis para Posts
   let selectedFilesForEdit = [];
   let urlsParaRemover = [];
-  
+
   // Variáveis para Carrossel de Mídia
   let currentMediaIndex = 0;
   let currentMediaItems = [];
@@ -30,18 +31,18 @@ document.addEventListener("DOMContentLoaded", () => {
     profileDob: document.getElementById("profile-dob"),
     editProfileBtnPage: document.getElementById("edit-profile-btn-page"),
     postsContainer: document.querySelector(".posts-container"),
-    
+
     // Abas
     tabButtons: document.querySelectorAll(".tab-btn"),
     tabContents: document.querySelectorAll(".tab-content"),
-    
+
     // Listas das Abas
     profileFriendsList: document.getElementById("profile-friends-list"),
     profileProjectsList: document.getElementById("profile-projects-list"),
     tabFriendsCount: document.getElementById("tab-friends-count"),
     tabProjectsCount: document.getElementById("tab-projects-count"),
-    
-    // Elementos globais (sidebar, topbar, notificações)
+
+    // Elementos globais
     notificationCenter: document.querySelector(".notification-center"),
     topbarUserName: document.getElementById("topbar-user-name"),
     topbarUserImg: document.getElementById("topbar-user-img"),
@@ -56,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
     notificationsBadge: document.getElementById("notifications-badge"),
     userDropdownTrigger: document.querySelector(".user-dropdown .user"),
     logoutBtn: document.getElementById("logout-btn"),
-    
+
     // Modais
     editProfileModal: document.getElementById("edit-profile-modal"),
     editProfileForm: document.getElementById("edit-profile-form"),
@@ -66,7 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editCommentForm: document.getElementById("edit-comment-form"),
     deleteAccountModal: document.getElementById("delete-account-modal"),
     deleteAccountForm: document.getElementById("delete-account-form"),
-    
+
     // Elementos do carrossel modal
     mediaViewerModal: document.getElementById('media-viewer-modal'),
     carouselContainer: document.getElementById('carousel-container'),
@@ -74,9 +75,48 @@ document.addEventListener("DOMContentLoaded", () => {
     carouselPrev: document.getElementById('carousel-prev'),
     carouselNext: document.getElementById('carousel-next'),
     mediaViewerClose: document.getElementById('media-viewer-close'),
+    
+    // Novos elementos de edição
+    editPostIdInput: document.getElementById("edit-post-id"),
+    editPostTextarea: document.getElementById("edit-post-textarea"),
+    editExistingMediaContainer: document.getElementById("edit-existing-media-container"),
+    editPostFileInput: document.getElementById("edit-post-files"),
+    editFilePreviewContainer: document.getElementById("edit-file-preview-container"),
+    
+    editCommentIdInput: document.getElementById("edit-comment-id"),
+    editCommentTextarea: document.getElementById("edit-comment-textarea"),
+    
+    deleteConfirmPassword: document.getElementById("delete-confirm-password"),
+    cancelDeleteAccountBtn: document.getElementById("cancel-delete-account-btn"),
+    cancelEditProfileBtn: document.getElementById("cancel-edit-profile-btn")
   };
 
-  // --- FUNÇÕES DE TEMA (CLARO/ESCURO) ---
+  // --- FUNÇÕES UTILITÁRIAS E GLOBAIS ---
+
+  function closeAllMenus() {
+    document.querySelectorAll('.options-menu, .dropdown-menu, .notifications-panel').forEach(menu => {
+      menu.style.display = 'none';
+    });
+  }
+
+  function showNotification(message, type = "info") {
+    const notification = document.createElement("div");
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    if (elements.notificationCenter) elements.notificationCenter.appendChild(notification);
+    setTimeout(() => {
+      notification.classList.add("show");
+    }, 10);
+    setTimeout(() => {
+      notification.classList.remove("show");
+      setTimeout(() => {
+        notification.remove();
+      }, 300);
+    }, 5000);
+  }
+  window.showNotification = showNotification;
+
+  // --- FUNÇÕES DE TEMA ---
   function setInitialTheme() {
     const savedTheme = localStorage.getItem("theme") || "dark";
     document.documentElement.setAttribute("data-theme", savedTheme);
@@ -104,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- FUNÇÕES DE CARROSSEL (mantidas do código original) ---
+  // --- FUNÇÕES DE CARROSSEL ---
   window.openMediaViewer = (mediaUrls, startIndex = 0) => {
       const modal = document.getElementById('media-viewer-modal');
       const container = document.getElementById('carousel-container');
@@ -175,7 +215,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (nextBtn) nextBtn.disabled = currentMediaIndex === currentMediaItems.length - 1;
   }
 
-  // Funções para o Carrossel no Feed (Horizontal Scroll)
   window.scrollFeedCarousel = (postId, direction) => {
     const track = document.getElementById(`feed-track-${postId}`);
     if (track) {
@@ -274,22 +313,18 @@ document.addEventListener("DOMContentLoaded", () => {
       updateUIWithUserData(currentUser); 
       populateProfileData(profileUser); 
       
-      // Configura botões e abas
       configureProfileActions(profileUserId ? profileUserId == currentUser.id : true);
       setupTabNavigation();
 
-      // Busca dados para as abas
       fetchUserPosts(profileUser.id);
       fetchProfileFriends(profileUser.id);
       fetchProfileProjects(profileUser.id);
 
-      // Inicializa funcionalidades globais
       connectWebSocket(); 
       setupEventListeners();
       setupCarouselModalEvents();
       setInitialTheme();
       
-      // Busca dados globais
       await fetchFriends();
       await fetchInitialOnlineFriends();
       atualizarStatusDeAmigosNaUI();
@@ -329,7 +364,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ? user.urlFotoPerfil 
         : `${backendUrl}${user.urlFotoPerfil || "/images/default-avatar.jpg"}`;
 
-    // Atualiza topbar
     const topbarUser = document.querySelector(".user-dropdown .user");
     if (topbarUser) {
         topbarUser.innerHTML = `
@@ -339,24 +373,20 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
     }
 
-    // Atualiza a Sidebar
     if (elements.sidebarUserName) elements.sidebarUserName.textContent = user.nome;
     if (elements.sidebarUserTitle) elements.sidebarUserTitle.textContent = user.tipoUsuario || "Membro da Comunidade";
     if (elements.sidebarUserImg) elements.sidebarUserImg.src = userImage;
   }
 
-  // --- LÓGICA DAS ABAS ---
   function setupTabNavigation() {
       elements.tabButtons.forEach(btn => {
           btn.addEventListener('click', () => {
-              // Remove ativo de todos
               elements.tabButtons.forEach(b => b.classList.remove('active'));
               elements.tabContents.forEach(c => {
                   c.classList.remove('active');
                   c.style.display = 'none';
               });
 
-              // Ativa o clicado
               btn.classList.add('active');
               const targetId = btn.getAttribute('data-target');
               const targetContent = document.getElementById(targetId);
@@ -368,9 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  // --- BUSCA DE DADOS DO PERFIL ---
-
-  // 1. Amigos do Perfil (Visualizado)
+  // --- FUNÇÕES DE BUSCA ---
   async function fetchProfileFriends(userId) {
       try {
           let friends = [];
@@ -378,11 +406,9 @@ document.addEventListener("DOMContentLoaded", () => {
                const response = await axios.get(`${backendUrl}/api/amizades/`);
                friends = response.data;
           } else {
-               // Usa o endpoint para buscar amigos de outro usuário
                const response = await axios.get(`${backendUrl}/api/amizades/usuario/${userId}`);
                friends = response.data;
           }
-          
           renderProfileFriends(friends);
       } catch (error) {
           console.error("Erro ao buscar amigos do perfil", error);
@@ -426,7 +452,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  // 2. Projetos do Perfil - CORRIGIDA
   async function fetchProfileProjects(userId) {
       try {
           const response = await axios.get(`${backendUrl}/projetos/usuario/${userId}`);
@@ -457,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
               ? (proj.imagemUrl.startsWith('http') 
                   ? proj.imagemUrl 
                   : `${backendUrl}${proj.imagemUrl}`)
-              : 'https://via.placeholder.com/200x120?text=Projeto';
+              : 'https://placehold.co/200x120?text=Projeto';
               
           card.innerHTML = `
               <img src="${imageUrl}" alt="${proj.titulo}" class="profile-card-img">
@@ -466,7 +491,6 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="profile-card-status">${proj.status || 'Em andamento'}</div>
           `;
           
-          // Adiciona evento de clique para abrir modal
           card.addEventListener('click', () => {
               window.openProjectModal(proj.id);
           });
@@ -475,15 +499,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  // --- RENDERIZAÇÃO DE POSTS COM CARROSSEL ---
-  
   async function fetchUserPosts(userId) {
       if (!elements.postsContainer) return;
       try {
         const response = await axios.get(`${backendUrl}/api/chat/publico`);
         elements.postsContainer.innerHTML = "";
         
-        // Filtra apenas posts do usuário do perfil
         const userPosts = response.data.filter((post) => post.autorId === userId);
 
         if (userPosts.length === 0) {
@@ -512,14 +533,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const dataFormatada = new Date(post.dataCriacao).toLocaleDateString('pt-BR');
     const isAuthor = currentUser && post.autorId === currentUser.id;
 
-    // --- LÓGICA DO CARROSSEL ---
     let mediaHtml = "";
     if (post.urlsMidia && post.urlsMidia.length > 0) {
         if (post.urlsMidia.length > 2) {
-            // Carrossel Horizontal (> 2 mídias)
             mediaHtml = renderFeedCarousel(post.urlsMidia, post.id);
         } else if (post.urlsMidia.length === 1) {
-            // Mídia Única
             const url = post.urlsMidia[0];
             const fullMediaUrl = url.startsWith("http") ? url : `${backendUrl}${url}`;
             const safeMediaArray = JSON.stringify(post.urlsMidia).replace(/"/g, '&quot;');
@@ -529,19 +547,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 mediaHtml = `<div class="post-media" onclick="window.openMediaViewer(${safeMediaArray}, 0)"><img src="${fullMediaUrl}" style="max-width: 100%; border-radius: 8px; cursor: pointer;"></div>`;
             }
         } else {
-            // Grid (2 mídias)
             mediaHtml = renderMediaGrid(post.urlsMidia);
         }
     }
 
-    // Renderizar comentários
     const rootComments = (post.comentarios || []).filter((c) => !c.parentId);
     let commentsHtml = rootComments
         .sort((a, b) => new Date(a.dataCriacao) - new Date(b.dataCriacao))
         .map((comment) => renderCommentWithReplies(comment, post.comentarios, post))
         .join("");
 
-    // Opções do post
     let optionsMenu = "";
     if (isAuthor) {
         optionsMenu = `
@@ -580,7 +595,6 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
         </div>`;
 
-    // Ativa listeners de scroll se for carrossel
     if (post.urlsMidia && post.urlsMidia.length > 2) {
         setTimeout(() => setupCarouselEventListeners(postElement, post.id), 0);
     }
@@ -663,9 +677,8 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>`;
   }
 
-  // --- FUNÇÕES GLOBAIS INTEGRADAS DA PRINCIPAL.JS ---
+  // --- FUNÇÕES GLOBAIS ---
 
-  // Funções de Amigos
   async function fetchFriends() {
     try {
       const response = await axios.get(`${backendUrl}/api/amizades/`);
@@ -707,15 +720,8 @@ document.addEventListener("DOMContentLoaded", () => {
         onlineFriends.forEach(friend => {
             const friendElement = document.createElement('div');
             friendElement.className = 'friend-item';
-            
-            const friendAvatar = friend.fotoPerfil 
-                ? (friend.fotoPerfil.startsWith('http') 
-                    ? friend.fotoPerfil 
-                    : `${backendUrl}/api/arquivos/${friend.fotoPerfil}`) 
-                : defaultAvatarUrl;
-            
+            const friendAvatar = friend.fotoPerfil ? (friend.fotoPerfil.startsWith('http') ? friend.fotoPerfil : `${backendUrl}/api/arquivos/${friend.fotoPerfil}`) : defaultAvatarUrl;
             const friendId = friend.idUsuario; 
-
             friendElement.innerHTML = `
                 <a href="perfil.html?id=${friendId}" class="friend-item-link">
                     <div class="avatar"><img src="${friendAvatar}" alt="Avatar de ${friend.nome}" onerror="this.src='${defaultAvatarUrl}';"></div>
@@ -728,7 +734,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Funções de Notificações
   async function fetchNotifications() {
     try {
       const response = await axios.get(`${backendUrl}/api/notificacoes`);
@@ -810,6 +815,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return item;
   }
 
+  window.markNotificationAsRead = async (event, notificationId) => {
+    if (event) event.preventDefault();
+    const item = document.getElementById(`notification-item-${notificationId}`);
+    const targetHref = event.currentTarget.href;
+
+    if (!item || !item.classList.contains("unread")) {
+      if (targetHref && !targetHref.endsWith("#")) window.location.href = targetHref;
+      return;
+    }
+
+    item.classList.remove("unread");
+    try {
+      await axios.post(`${backendUrl}/api/notificacoes/${notificationId}/ler`);
+      fetchNotifications();
+    } catch (error) {
+      item.classList.add("unread"); 
+    } finally {
+      if (targetHref && !targetHref.endsWith("#")) window.location.href = targetHref;
+    }
+  };
+
   async function markAllNotificationsAsRead() {
     const unreadCount = parseInt(elements.notificationsBadge.textContent, 10);
     if (isNaN(unreadCount) || unreadCount === 0) return;
@@ -865,14 +891,11 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchNotifications();
   }
 
-  // Funções de Mensagens - CORRIGIDAS
   function updateMessageBadge(count) {
     if (messageBadgeElement) {
       messageBadgeElement.textContent = count;
       messageBadgeElement.style.display = count > 0 ? "flex" : "none";
     }
-    
-    // Atualizar também no menu
     const messageBadgeMenu = document.getElementById("message-badge-menu");
     if (messageBadgeMenu) {
       messageBadgeMenu.textContent = count;
@@ -891,7 +914,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Funções de WebSocket - CORRIGIDAS
   function connectWebSocket() {
     const socket = new SockJS(`${backendUrl}/ws`);
     stompClient = Stomp.over(socket);
@@ -904,12 +926,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("CONECTADO AO WEBSOCKET (Perfil)");
         window.stompClient = stompClient;
 
-        // Inscrição em Notificações
         stompClient.subscribe(`/user/queue/notifications`, (message) => {
-          console.log("NOTIFICAÇÃO RECEBIDA!", message.body);
           const newNotification = JSON.parse(message.body);
           showNotification(`Nova notificação: ${newNotification.mensagem}`, "info");
-          
           if (elements.notificationsList) {
             const emptyState = elements.notificationsList.querySelector(".empty-state");
             if (emptyState) emptyState.remove();
@@ -926,21 +945,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
         stompClient.subscribe('/user/queue/errors', (message) => {
           const errorMessage = message.body; 
-          window.showNotification(errorMessage, 'error');
+          showNotification(errorMessage, 'error');
         });
 
-        // Inscrição em Status Online
         stompClient.subscribe("/topic/status", (message) => {
           latestOnlineEmails = JSON.parse(message.body);
           atualizarStatusDeAmigosNaUI();
         });
 
-        // Inscrição em Posts Públicos
         stompClient.subscribe("/topic/publico", (message) => {
           handlePublicFeedUpdate(JSON.parse(message.body));
         });
 
-        // Inscrição para atualizações de amizades
         stompClient.subscribe(`/user/queue/amizades`, (message) => {
           fetchProfileFriends(profileUser.id);
           fetchFriends().then(() => {
@@ -948,11 +964,9 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         });
 
-        // INSCRIÇÃO PARA CONTAGEM DE MENSAGENS - CORRIGIDA
         stompClient.subscribe(`/user/queue/contagem`, (message) => {
           try {
             const count = JSON.parse(message.body);
-            console.log("Contagem de mensagens não lidas:", count);
             updateMessageBadge(count);
           } catch (error) {
             console.error("Erro ao processar contagem de mensagens:", error);
@@ -967,18 +981,10 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // --- LÓGICA DOS MODAIS E MENUS ---
-
-  const closeAllMenus = () => {
-    document
-      .querySelectorAll(".options-menu, .dropdown-menu, .notifications-panel")
-      .forEach((m) => (m.style.display = "none"));
-  };
-
   function openEditProfileModal() {
-    if (!profileUser || !elements.editProfileModal) return; // MUDANÇA: usa profileUser
+    if (!profileUser || !elements.editProfileModal) return; 
     elements.editProfilePicPreview.src = profileUser.urlFotoPerfil
-      ? `${backendUrl}${profileUser.urlFotoPerfil}` // CORREÇÃO DE URL
+      ? `${backendUrl}${profileUser.urlFotoPerfil}` 
       : defaultAvatarUrl;
     elements.editProfileName.value = profileUser.nome;
     elements.editProfileBio.value = profileUser.bio || "";
@@ -995,637 +1001,14 @@ document.addEventListener("DOMContentLoaded", () => {
       elements.deleteAccountModal.style.display = "flex";
   }
 
-  // --- LÓGICA DE POSTAGENS (NOVA - Transportada de principal.js) ---
-
-  // 1. Função para buscar Apenas os posts do usuário
-  async function fetchUserPosts(userId) {
-    if (!elements.postsContainer) return;
-    try {
-      // CORREÇÃO: Buscamos TODOS os posts, já que o endpoint /postagem/usuario/{id} deu 404.
-      const response = await axios.get(`${backendUrl}/api/chat/publico`);
-
-      elements.postsContainer.innerHTML = "";
-
-      // FILTRO: Filtramos os posts no frontend para mostrar apenas os do usuário atual
-      const allPosts = response.data;
-      const userPosts = allPosts.filter((post) => post.autorId === userId);
-
-      // Verificamos se a lista FILTRADA está vazia
-      if (userPosts.length === 0) {
-        elements.postsContainer.innerHTML =
-          "<p class='empty-state' style='text-align: center; padding: 2rem; color: var(--text-secondary);'>Este usuário ainda não fez nenhuma postagem.</p>";
-        return;
-      }
-
-      // Ordenamos e exibimos apenas os posts FILTRADOS
-      const sortedPosts = userPosts.sort(
-        (a, b) => new Date(b.dataCriacao) - new Date(a.dataCriacao)
-      );
-      sortedPosts.forEach((post) => showPost(post));
-    } catch (error) {
-      console.error("Erro ao buscar postagens do usuário:", error);
-      elements.postsContainer.innerHTML =
-        "<p class='empty-state' style='text-align: center; padding: 2rem; color: var(--text-secondary);'>Não foi possível carregar as postagens.</p>";
-    }
-  }
-
-  // 2. Funções de renderização de Post/Comentário
-  function createPostElement(post) {
-    const postElement = document.createElement("div");
-    postElement.className = "post";
-    postElement.id = `post-${post.id}`;
-    const autorNome = post.nomeAutor || "Usuário Desconhecido";
-    const autorIdDoPost = post.autorId;
-    const fotoAutorPath = post.urlFotoAutor;
-
-    // Correção no path do avatar
-    const autorAvatar = post.urlFotoAutor
-      ? post.urlFotoAutor.startsWith("http")
-        ? post.urlFotoAutor
-        : `${backendUrl}${post.urlFotoAutor}`
-      : defaultAvatarUrl;
-
-    // --- LÓGICA DE DATA (Estilo X.com) ---
-    const dataPost = new Date(post.dataCriacao);
-    const agora = new Date();
-    const diffMs = agora - dataPost;
-    const diffMin = Math.round(diffMs / 60000);
-    const diffHoras = Math.round(diffMin / 60);
-    const diffDias = Math.round(diffHoras / 24);
-
-    let dataFormatadaSimples;
-    if (diffMin < 1) {
-      dataFormatadaSimples = "Agora";
-    } else if (diffMin < 60) {
-      dataFormatadaSimples = `${diffMin}m`;
-    } else if (diffHoras < 24) {
-      dataFormatadaSimples = `${diffHoras}h`;
-    } else if (diffDias < 7) {
-      dataFormatadaSimples = `${diffDias}d`;
-    } else {
-      // Formato "28 de out."
-      dataFormatadaSimples = dataPost.toLocaleDateString("pt-BR", {
-        day: "numeric",
-        month: "short",
-      });
-    }
-    // --- FIM DA LÓGICA DE DATA ---
-
-    const isAuthor = currentUser && autorIdDoPost === currentUser.id;
-
-    let mediaHtml = "";
-    if (post.urlsMidia && post.urlsMidia.length > 0) {
-      mediaHtml = `<div class="post-media">${post.urlsMidia
-        .map((url) => {
-          const fullMediaUrl = url.startsWith("http")
-            ? url
-            : `${backendUrl}${url}`;
-          if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i))
-            return `<img src="${fullMediaUrl}" alt="Mídia da postagem">`;
-          if (url.match(/\.(mp4|webm|ogg)$/i))
-            return `<video controls src="${fullMediaUrl}"></video>`;
-          return "";
-        })
-        .join("")}</div>`;
-    }
-
-    const rootComments = (post.comentarios || []).filter((c) => !c.parentId);
-    let commentsHtml = rootComments
-      .sort((a, b) => new Date(a.dataCriacao) - new Date(b.dataCriacao))
-      .map((comment) =>
-        renderCommentWithReplies(comment, post.comentarios, post)
-      )
-      .join("");
-
-    let optionsMenu = "";
-    if (isAuthor) {
-      optionsMenu = `
-                <div class="post-options">
-                    <button class="post-options-btn" onclick="event.stopPropagation(); window.openPostMenu(${post.id})"><i class="fas fa-ellipsis-h"></i></button>
-                    <div class="options-menu" id="post-menu-${post.id}" onclick="event.stopPropagation();">
-                        <button onclick="window.openEditPostModal(${post.id})"><i class="fas fa-pen"></i> Editar</button>
-                        <button class="danger" onclick="window.deletePost(${post.id})"><i class="fas fa-trash"></i> Excluir</button>
-                    </div>
-                </div>`;
-    }
-
-    postElement.innerHTML = `
-            <div class="post-header">
-                <a href="perfil.html?id=${autorIdDoPost}" class="post-author-details-link">
-                    <div class="post-author-details">
-                        <div class="post-author-avatar"><img src="${autorAvatar}" alt="${autorNome}" onerror="this.src='${defaultAvatarUrl}';"></div>
-                        <div class="post-author-info">
-                            <strong>${autorNome}</strong>
-                            <span class="timestamp">· ${dataFormatadaSimples}</span>
-                        </div>
-                    </div>
-                </a>
-                ${optionsMenu}
-            </div>
-            <div class="post-content"><p>${post.conteudo}</p></div>
-            ${mediaHtml}
-            
-            <div class="post-actions x-style">
-                <button class="action-btn action-like ${
-                  post.curtidoPeloUsuario ? "liked" : ""
-                }" onclick="window.toggleLike(event, ${post.id}, null)">
-                    <i class="${
-                      post.curtidoPeloUsuario ? "fas fa-heart" : "far fa-heart"
-                    }"></i> 
-                    <span id="like-count-post-${post.id}">${
-      post.totalCurtidas || 0
-    }</span>
-                </button>
-                <button class="action-btn action-comment" onclick="window.toggleComments(${post.id})">
-                    <i class="far fa-comment"></i> <span>${post.comentarios?.length || 0}</span>
-                </button>
-            </div>
-            <div class="comments-section" id="comments-section-${
-              post.id
-            }" style="display: none;">
-                <div class="comments-list">${commentsHtml}</div>
-                <div class="comment-form">
-                    <input type="text" id="comment-input-${
-                      post.id
-                    }" placeholder="Adicione um comentário..."><button onclick="window.sendComment(${
-      post.id
-    }, null)"><i class="fas fa-paper-plane"></i></button>
-                </div>
-            </div>`;
-    return postElement;
-  }
-
-  /**
-   * CORRIGIDO (V3): Cria o HTML para um comentário.
-   * Adiciona uma tag @username que linka para O PERFIL do usuário
-   * se for uma resposta a outra resposta (Nível 2+).
-   */
-  function createCommentElement(comment, post, allComments) {
-    //
-    const commentAuthorName = comment.autor?.nome || comment.nomeAutor || "Usuário";
-    const commentAuthorAvatar = comment.urlFotoAutor
-      ? comment.urlFotoAutor.startsWith("http")
-        ? comment.urlFotoAutor
-        : `${backendUrl}${comment.urlFotoAutor}`
-      : defaultAvatarUrl;
-    const autorIdDoComentario = comment.autor?.id || comment.autorId;
-    const autorIdDoPost = post.autor?.id || post.autorId;
-    const isAuthor = currentUser && autorIdDoComentario == currentUser.id;
-    const isPostOwner = currentUser && autorIdDoPost == currentUser.id;
-    let optionsMenu = "";
-
-    if (isAuthor || isPostOwner) {
-      optionsMenu = `
-                    <button class="comment-options-btn" onclick="event.stopPropagation(); window.openCommentMenu(${comment.id})">
-                        <i class="fas fa-ellipsis-h"></i>
-                    </button>
-                    <div class="options-menu" id="comment-menu-${comment.id}" onclick="event.stopPropagation();">
-                        ${
-                          isAuthor
-                            ? `<button onclick="window.openEditCommentModal(${
-                                comment.id
-                              }, '${comment.conteudo.replace(
-                                /'/g,
-                                "\\'"
-                              )}')"><i class="fas fa-pen"></i> Editar</button>`
-                            : ""
-                        }
-                        ${
-                          isAuthor || isPostOwner
-                            ? `<button class="danger" onclick="window.deleteComment(${comment.id})"><i class="fas fa-trash"></i> Excluir</button>`
-                            : ""
-                        }
-                        ${
-                          isPostOwner
-                            ? `<button onclick="window.highlightComment(${
-                                comment.id
-                              })"><i class="fas fa-star"></i> ${
-                                comment.destacado
-                                  ? "Remover Destaque"
-                                  : "Destacar"
-                              }</button>`
-                            : ""
-                        }
-                    </div>`;
-    }
-
-    // --- ▼▼▼ LÓGICA DA TAG @USERNAME ATUALIZADA ▼▼▼ ---
-    let tagHtml = "";
-    // 1. Verificamos se é uma resposta (tem parentId) e se temos a lista de comentários
-    if (comment.parentId && allComments) {
-      // 2. Encontramos o comentário "pai"
-      const parentComment = allComments.find(
-        (c) => c.id === comment.parentId
-      );
-
-      // 3. Verificamos se o "pai" TAMBÉM é uma resposta (Nível 2+)
-      //    Se parentComment.parentId existir, significa que não é uma resposta ao comentário principal.
-      if (parentComment && parentComment.parentId) {
-        // 4. Pegamos o ID DO AUTOR do comentário pai (do DTO do comentário pai)
-        const parentAuthorId = parentComment.autorId;
-
-        // 5. Criamos o link para o PERFIL desse autor
-        tagHtml = `<a href="perfil.html?id=${parentAuthorId}" class="reply-tag">@${comment.replyingToName}</a>`;
-      }
-    }
-    // --- ▲▲▲ FIM DA LÓGICA ATUALIZADA ▲▲▲ ---
-
-    return `
-                <div class="comment-container">
-                    <div class="comment ${
-                      comment.destacado ? "destacado" : ""
-                    }" id="comment-${comment.id}">
-                        <a href="perfil.html?id=${autorIdDoComentario}" class="comment-author-link">
-                            <div class="comment-avatar"><img src="${commentAuthorAvatar}" alt="Avatar de ${commentAuthorName}"></div>
-                        </a>
-                        <div class="comment-body">
-                            <a href="perfil.html?id=${autorIdDoComentario}" class="comment-author-link">
-                                <span class="comment-author">${commentAuthorName}</span>
-                            </a>
-                            <p class="comment-content">${tagHtml} ${
-      comment.conteudo
-    }</p>
-                        </div>
-                        ${optionsMenu}
-                    </div>
-                    <div class="comment-actions-footer">
-                        <button class="action-btn-like ${
-                          comment.curtidoPeloUsuario ? "liked" : ""
-                        }" onclick="window.toggleLike(event, ${post.id}, ${
-      comment.id
-    })">Curtir</button>
-                        <button class="action-btn-reply" onclick="window.toggleReplyForm(${
-                          comment.id
-                        })">Responder</button>
-                        <span class="like-count" id="like-count-comment-${
-                          comment.id
-                        }"><i class="fas fa-heart"></i> ${
-      comment.totalCurtidas || 0
-    }</span>
-                    </div>
-                    <div class="reply-form" id="reply-form-${comment.id}">
-                        <input type="text" id="reply-input-${
-                          comment.id
-                        }" placeholder="Escreva sua resposta..."><button onclick="window.sendComment(${
-      post.id
-    }, ${comment.id})"><i class="fas fa-paper-plane"></i></button>
-                    </div>
-                </div>`;
-  }
-
-  /**
-   * CORRIGIDO: Renderiza um comentário e suas respostas.
-   * Agora usa o parâmetro 'isAlreadyInReplyThread' para garantir
-   * que apenas o primeiro nível de respostas seja recuado.
-   */
- // SUBSTITUA a função 'renderCommentWithReplies' inteira por esta:
-function renderCommentWithReplies(comment, allComments, post, isAlreadyInReplyThread = false) {
-    // 1. Cria o HTML para o comentário atual
-    let commentHtml = createCommentElement(comment, post, allComments); 
-
-    // 2. Encontra todas as respostas diretas a este comentário
-    const replies = allComments
-        .filter((reply) => reply.parentId === comment.id)
-        .sort((a, b) => new Date(a.dataCriacao) - new Date(b.dataCriacao));
-
-    // 3. Se este comentário tem respostas E é um comentário "principal" (não uma resposta de nível 2+)
-    if (replies.length > 0 && !isAlreadyInReplyThread) {
-        
-        // A. Adicionar o botão "Ver Respostas"
-        const plural = replies.length > 1 ? 'respostas' : 'resposta';
-        commentHtml += `
-            <div class="view-replies-container">
-                <button class="btn-view-replies" onclick="window.toggleReplies(this, ${comment.id})">
-                    <i class="fas fa-comment-dots"></i>
-                    Ver ${replies.length} ${plural}
-                </button>
-            </div>
-        `;
-
-        // B. Ocultar o contêiner de respostas por padrão
-        //    O 'display: flex' será adicionado pelo JS ao clicar
-        commentHtml += `<div class="comment-replies" id="replies-for-${comment.id}" style="display: none;">`;
-        
-        // C. Renderizar as respostas (lógica existente que achata a árvore)
-        replies.forEach((reply) => {
-            // Passa 'true' para que as sub-respostas sejam aninhadas
-            commentHtml += renderCommentWithReplies(reply, allComments, post, true); 
-        });
-        
-        commentHtml += `</div>`; // Fecha o container
-    
-    } else if (replies.length > 0 && isAlreadyInReplyThread) {
-        // 4. Se for uma resposta (Nível 2+) que TAMBÉM tem respostas (Nível 3+),
-        //    apenas continue a recursão. A lógica original já achatava isso.
-        replies.forEach((reply) => {
-            commentHtml += renderCommentWithReplies(reply, allComments, post, true);
-        });
-    }
-
-    // 5. Se não houver respostas (replies.length === 0), só retorna o commentHtml
-    return commentHtml;
-}
-
-  // Renomeado de showPublicPost para showPost
-  function showPost(post, prepend = false) {
-    const postElement = createPostElement(post);
-    if (prepend) {
-      elements.postsContainer.prepend(postElement);
-    } else {
-      elements.postsContainer.appendChild(postElement);
-    }
-  }
-
-  /* SUBSTITUA a função 'fetchAndReplacePost' inteira por esta 
-   em CADA arquivo JS que a possua (principal.js, perfil.js)
-*/
-async function fetchAndReplacePost(postId) {
-    const oldPostElement = document.getElementById(`post-${postId}`);
-    
-    // --- 1. Salvar Estado da UI (Antes do Fetch) ---
-    let wasCommentsVisible = false;
-    const openReplyContainerIds = new Set(); // Guarda IDs dos containers de resposta abertos
-
-    if (oldPostElement) {
-        // Salva se os comentários principais (nível 0) estavam abertos
-        const oldCommentsSection = oldPostElement.querySelector(".comments-section");
-        if (oldCommentsSection) {
-            wasCommentsVisible = oldCommentsSection.style.display === 'block';
-        }
-        
-        // Salva o ID de todos os containers de RESPOSTA (nível 1+) que estavam abertos
-        const oldReplyContainers = oldPostElement.querySelectorAll('.comment-replies');
-        oldReplyContainers.forEach(container => {
-            // Usamos 'flex' porque foi o que definimos no toggleReplies
-            if (container.style.display === 'flex') { 
-                openReplyContainerIds.add(container.id);
-            }
-        });
-    }
-
-    try {
-        // --- 2. Buscar Novos Dados ---
-        const response = await axios.get(`${backendUrl}/postagem/${postId}`);
-        const newPostElement = createPostElement(response.data); // Cria o novo HTML
-
-        // --- 3. Restaurar Estado da UI (no Novo Elemento) ---
-        
-        // Restaura o container principal de comentários
-        if (wasCommentsVisible) {
-            const newCommentsSection = newPostElement.querySelector(".comments-section");
-            if (newCommentsSection) newCommentsSection.style.display = 'block';
-        }
-        
-        // Restaura todos os containers de resposta que estavam abertos
-        if (openReplyContainerIds.size > 0) {
-            openReplyContainerIds.forEach(containerId => {
-                const newReplyContainer = newPostElement.querySelector(`#${containerId}`);
-                if (newReplyContainer) {
-                    // Encontra o botão que controla este container
-                    const commentId = containerId.replace('replies-for-', '');
-                    const button = newPostElement.querySelector(`button[onclick*="window.toggleReplies(this, ${commentId})"]`);
-                    
-                    // Aplica o estado "aberto"
-                    newReplyContainer.style.display = 'flex';
-                    if (button) {
-                        button.innerHTML = `<i class="fas fa-minus-circle"></i> Ocultar respostas`;
-                    }
-                }
-            });
-        }
-        
-        // --- 4. Substituir o Elemento na DOM ---
-        if (oldPostElement) {
-            oldPostElement.replaceWith(newPostElement);
-        } else {
-            // Lógica de fallback caso o post antigo não exista
-            // Garante que o nome da função é o correto para o script
-            if (typeof showPublicPost === 'function') {
-                showPublicPost(response.data, true); // Para principal.js
-            } else if (typeof showPost === 'function') {
-                showPost(response.data, true); // Para perfil.js
-            }
-        }
-
-    } catch (error) {
-        console.error(`Falha ao recarregar post ${postId}:`, error);
-        // Se o post foi excluído (ex: 404), remove o elemento antigo
-        if (error.response && error.response.status === 404) {
-             if (oldPostElement) oldPostElement.remove();
-        }
-    }
-}
- function handlePublicFeedUpdate(payload) {
-    // NÃO vamos mais ignorar. Precisamos da atualização para atualizar os contadores.
-    /*
-    if (payload.autorAcaoId && currentUser && payload.autorAcaoId == currentUser.id)
-      return; 
-    */
-
-    const postId = payload.postagem?.id || payload.id || payload.postagemId;
-
-    if (payload.tipo === "remocao" && payload.postagemId) {
-      const postElement = document.getElementById(`post-${payload.postagemId}`);
-      if (postElement) postElement.remove();
-    } else if (postId) {
-      fetchAndReplacePost(postId);
-    }
-  }
-
-  // 3. Funções de Ação (Janelas)
-  window.openPostMenu = (postId) => {
-    closeAllMenus();
-    document.getElementById(`post-menu-${postId}`).style.display = "block";
-  };
-  window.openCommentMenu = (commentId) => {
-    closeAllMenus();
-    document.getElementById(`comment-menu-${commentId}`).style.display = "block";
-  };
-  window.toggleComments = (postId) => {
-    const cs = document.getElementById(`comments-section-${postId}`);
-    cs.style.display = cs.style.display === "block" ? "none" : "block";
-  };
-  window.toggleReplyForm = (commentId) => {
-    const form = document.getElementById(`reply-form-${commentId}`);
-    form.style.display = form.style.display === "flex" ? "none" : "flex";
-  };
-  window.sendComment = (postId, parentId = null) => {
-    const inputId = parentId
-      ? `reply-input-${parentId}`
-      : `comment-input-${postId}`;
-    const input = document.getElementById(inputId);
-    const content = input.value.trim();
-    if (stompClient?.connected && content) {
-      stompClient.send(
-        `/app/postagem/${postId}/comentar`,
-        {},
-        JSON.stringify({ conteudo: content, parentId: parentId })
-      );
-      input.value = "";
-      if (parentId)
-        document.getElementById(`reply-form-${parentId}`).style.display = "none";
-    }
-  };
-  // Função para mostrar/ocultar respostas aninhadas
-window.toggleReplies = (buttonElement, commentId) => {
-    const repliesContainer = document.getElementById(`replies-for-${commentId}`);
-    if (!repliesContainer) return;
-
-    if (repliesContainer.style.display === 'none') {
-        // Mostrar respostas
-        repliesContainer.style.display = 'flex'; // Usamos 'flex' pois .comment-replies é flex
-        buttonElement.innerHTML = `<i class="fas fa-minus-circle"></i> Ocultar respostas`;
-    } else {
-        // Ocultar respostas
-        repliesContainer.style.display = 'none';
-        // Re-calcula o número de respostas para o texto do botão
-        const replyCount = repliesContainer.children.length;
-        const plural = replyCount > 1 ? 'respostas' : 'resposta';
-        buttonElement.innerHTML = `<i class="fas fa-comment-dots"></i> Ver ${replyCount} ${plural}`;
-    }
-};
-  window.toggleLike = async (event, postagemId, comentarioId = null) => {
-    const btn = event.currentTarget;
-    const isPost = comentarioId === null;
-    const countId = isPost
-      ? `like-count-post-${postagemId}`
-      : `like-count-comment-${comentarioId}`;
-    const countSpan = document.getElementById(countId);
-    let count = parseInt(
-      countSpan.innerText.trim().replace(/<[^>]*>/g, ""),
-      10
-    );
-    if (isNaN(count)) count = 0;
-
-    btn.classList.toggle("liked");
-    const isLiked = btn.classList.contains("liked");
-    const newCount = isLiked ? count + 1 : count - 1;
-
-    // --- ATUALIZAÇÃO DA UI (Novo) ---
-    if (isPost) {
-      const icon = btn.querySelector("i");
-      if (icon) {
-        // Verifica se o ícone existe
-        if (isLiked) {
-          icon.classList.remove("far"); // Remove contorno
-          icon.classList.add("fas"); // Adiciona sólido
-        } else {
-          icon.classList.remove("fas"); // Remove sólido
-          icon.classList.add("far"); // Adiciona contorno
-        }
-      }
-      countSpan.textContent = newCount; // Atualiza contagem do post
-    } else {
-      // Lógica antiga para curtida de comentário (que não tem ícone)
-      countSpan.innerHTML = `<i class="fas fa-heart"></i> ${newCount}`;
-    }
-
-    // --- CHAMADA API ---
-    try {
-      await axios.post(`${backendUrl}/curtidas/toggle`, {
-        postagemId,
-        comentarioId,
-      });
-    } catch (error) {
-      // --- REVERTE UI EM CASO DE ERRO ---
-      showNotification("Erro ao processar curtida.", "error");
-      btn.classList.toggle("liked"); // Reverte o "liked"
-
-      if (isPost) {
-        const icon = btn.querySelector("i");
-        if (icon) {
-          if (!isLiked) {
-            // Reverte para "não curtido"
-            icon.classList.remove("fas");
-            icon.classList.add("far");
-          } else {
-            // Reverte para "curtido"
-            icon.classList.remove("far");
-            icon.classList.add("fas");
-          }
-        }
-        countSpan.textContent = count; // Reverte contagem do post
-      } else {
-        countSpan.innerHTML = `<i class="fas fa-heart"></i> ${count}`; // Reverte contagem do comentário
-      }
-    }
-  };
-  window.deletePost = async (postId) => {
-    if (confirm("Tem certeza que deseja excluir esta postagem?")) {
-      try {
-        await axios.delete(`${backendUrl}/postagem/${postId}`);
-        showNotification("Postagem excluída.", "success");
-        // A atualização via WS deve remover o post
-      } catch (error) {
-        showNotification("Erro ao excluir postagem.", "error");
-      }
-    }
-  };
-  window.deleteComment = async (commentId) => {
-    if (confirm("Tem certeza que deseja excluir este comentário?")) {
-      try {
-        await axios.delete(`${backendUrl}/comentarios/${commentId}`);
-        showNotification("Comentário excluído.", "success");
-        // A atualização via WS deve recarregar o post
-      } catch (error) {
-        showNotification("Erro ao excluir comentário.", "error");
-      }
-    }
-  };
-  window.highlightComment = async (commentId) => {
-    try {
-      await axios.put(`${backendUrl}/comentarios/${commentId}/destacar`);
-      // A atualização via WS deve recarregar o post
-    } catch (error) {
-      showNotification("Erro ao destacar.", "error");
-    }
-  };
-
-  // 4. Funções de Modal (Edição)
-  window.openEditPostModal = async (postId) => {
-    if (
-      !elements.editPostModal ||
-      !elements.editExistingMediaContainer
-    )
-      return;
-    selectedFilesForEdit = [];
-    urlsParaRemover = [];
-    updateEditFilePreview();
-    elements.editExistingMediaContainer.innerHTML = "";
-
-    try {
-      const response = await axios.get(`${backendUrl}/postagem/${postId}`);
-      const oldPostElement = document.getElementById(`post-${postId}`);
-
-      if (response.data.autorId !== profileUser.id) {
-        if (oldPostElement) oldPostElement.remove();
-        return;
-      }
-
-      if (oldPostElement) {
-        const wasCommentsVisible = oldPostElement.querySelector(".comments-section").style.display === "block";
-        const newPostElement = createPostElement(response.data);
-        if (wasCommentsVisible) newPostElement.querySelector(".comments-section").style.display = "block";
-        oldPostElement.replaceWith(newPostElement);
-      }
-    } catch (error) {
-      const oldPostElement = document.getElementById(`post-${postId}`);
-      if (oldPostElement) oldPostElement.remove();
-      console.error(`Falha ao recarregar post ${postId}:`, error);
-    }
-  }
-
-  // --- CONFIGURAÇÃO DE AÇÕES DO PERFIL ---
   function configureProfileActions(isMyProfile) {
     if(elements.editProfileBtnPage) {
       elements.editProfileBtnPage.style.display = isMyProfile ? "inline-block" : "none";
     }
 
-    // Se não for o próprio perfil, adicionar botões de ação
     if (!isMyProfile && currentUser && profileUser) {
       const profileActions = document.querySelector('.profile-actions');
       if (profileActions) {
-        // Botão de enviar mensagem
         const messageBtn = document.createElement('button');
         messageBtn.className = 'btn btn-primary';
         messageBtn.innerHTML = '<i class="fas fa-envelope"></i> Enviar Mensagem';
@@ -1633,11 +1016,9 @@ window.toggleReplies = (buttonElement, commentId) => {
           window.location.href = `mensagem.html?userId=${profileUser.id}`;
         };
 
-        // Botão de amizade - verificar status atual
         const friendBtn = document.createElement('button');
         friendBtn.className = 'btn btn-secondary';
         
-        // Verificar status da amizade
         checkFriendshipStatus().then(status => {
           switch(status) {
             case 'AMIGOS':
@@ -1683,7 +1064,7 @@ window.toggleReplies = (buttonElement, commentId) => {
     try {
       await axios.post(`${backendUrl}/api/amizades/solicitar/${profileUser.id}`);
       showNotification('Solicitação de amizade enviada!', 'success');
-      configureProfileActions(false); // Recarregar botões
+      configureProfileActions(false);
     } catch (error) {
       showNotification('Erro ao enviar solicitação de amizade.', 'error');
     }
@@ -1692,14 +1073,13 @@ window.toggleReplies = (buttonElement, commentId) => {
   async function removerAmizade() {
     if (confirm('Tem certeza que deseja remover esta amizade?')) {
       try {
-        // Primeiro precisamos encontrar o ID da amizade
         const response = await axios.get(`${backendUrl}/api/amizades/`);
         const amizade = response.data.find(amigo => amigo.idUsuario === profileUser.id);
         
         if (amizade) {
           await axios.delete(`${backendUrl}/api/amizades/recusar/${amizade.id}`);
           showNotification('Amizade removida.', 'success');
-          configureProfileActions(false); // Recarregar botões
+          configureProfileActions(false);
         }
       } catch (error) {
         showNotification('Erro ao remover amizade.', 'error');
@@ -1707,59 +1087,26 @@ window.toggleReplies = (buttonElement, commentId) => {
     }
   }
 
-  // --- FUNÇÕES DE EDIÇÃO/EXCLUSÃO DE PERFIL ---
-  function openEditProfileModal() {
-    if (!currentUser || !elements.editProfileModal) return;
-    
-    // Preencher o formulário com dados atuais
-    document.getElementById("edit-profile-pic-preview").src = currentUser.urlFotoPerfil && currentUser.urlFotoPerfil.startsWith("http")
-      ? currentUser.urlFotoPerfil
-      : `${backendUrl}${currentUser.urlFotoPerfil || "/images/default-avatar.jpg"}`;
-    
-    document.getElementById("edit-profile-name").value = currentUser.nome;
-    document.getElementById("edit-profile-bio").value = currentUser.bio || "";
-    
-    if (currentUser.dataNascimento) {
-      document.getElementById("edit-profile-dob").value = currentUser.dataNascimento.split("T")[0];
-    }
-    
-    document.getElementById("edit-profile-password").value = "";
-    document.getElementById("edit-profile-password-confirm").value = "";
-    
-    elements.editProfileModal.style.display = "flex";
-  }
-
-  function openDeleteAccountModal() {
-    if (elements.deleteAccountModal) {
-      document.getElementById("delete-confirm-password").value = "";
-      elements.deleteAccountModal.style.display = "flex";
-    }
-  }
-
-  // --- FUNÇÕES DO MODAL DE PROJETOS ---
   window.openProjectModal = async (projectId) => {
     try {
         const response = await axios.get(`${backendUrl}/projetos/${projectId}`);
         const project = response.data;
         
-        // Preencher modal com dados do projeto
         document.getElementById('project-modal-title').textContent = project.titulo;
         document.getElementById('project-modal-description').textContent = project.descricao || 'Sem descrição';
         document.getElementById('project-modal-category').textContent = project.categoria || 'Não especificada';
         document.getElementById('project-modal-status').textContent = project.status || 'Em andamento';
         document.getElementById('project-modal-date').textContent = new Date(project.dataCriacao).toLocaleDateString('pt-BR');
         
-        // Imagem do projeto
         const projectImage = document.getElementById('project-modal-img');
         if (project.imagemUrl) {
             projectImage.src = project.imagemUrl.startsWith('http') 
                 ? project.imagemUrl 
                 : `${backendUrl}${project.imagemUrl}`;
         } else {
-            projectImage.src = 'https://via.placeholder.com/600x300?text=Projeto';
+            projectImage.src = 'https://placehold.co/600x300?text=Projeto';
         }
         
-        // Tecnologias
         const techContainer = document.getElementById('project-modal-technologies');
         techContainer.innerHTML = '';
         if (project.tags && project.tags.length > 0) {
@@ -1773,7 +1120,6 @@ window.toggleReplies = (buttonElement, commentId) => {
             techContainer.innerHTML = '<span>Nenhuma tecnologia especificada</span>';
         }
         
-        // Links
         const projectLink = document.getElementById('project-modal-link');
         const projectFullLink = document.getElementById('project-modal-full-link');
         if (project.link) {
@@ -1784,8 +1130,6 @@ window.toggleReplies = (buttonElement, commentId) => {
         }
         
         projectFullLink.href = `projeto.html?id=${project.id}`;
-        
-        // Mostrar modal
         document.getElementById('project-modal').style.display = 'flex';
         
     } catch (error) {
@@ -1794,266 +1138,11 @@ window.toggleReplies = (buttonElement, commentId) => {
     }
   };
 
-  // Função para fechar modal do projeto
   window.closeProjectModal = () => {
     document.getElementById('project-modal').style.display = 'none';
   };
 
-  // --- SETUP EVENT LISTENERS ---
-  function setupCarouselModalEvents() {
-      if (elements.mediaViewerClose) {
-        elements.mediaViewerClose.addEventListener('click', closeMediaViewer);
-      }
-      if (elements.carouselPrev) {
-        elements.carouselPrev.addEventListener('click', prevMedia);
-      }
-      if (elements.carouselNext) {
-        elements.carouselNext.addEventListener('click', nextMedia);
-      }
-      
-      document.addEventListener('keydown', (e) => {
-          if(elements.mediaViewerModal && elements.mediaViewerModal.style.display === 'flex') {
-              if(e.key === 'Escape') closeMediaViewer();
-              if(e.key === 'ArrowLeft') prevMedia();
-              if(e.key === 'ArrowRight') nextMedia();
-          }
-      });
-  }
-
-  function setupEventListeners() {
-    // Listener para o botão de edição de perfil na página
-    if (elements.editProfileBtnPage) {
-      elements.editProfileBtnPage.addEventListener("click", openEditProfileModal);
-    }
-
-    // User dropdown
-    if (elements.userDropdownTrigger) {
-      elements.userDropdownTrigger.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const menu = elements.userDropdownTrigger.nextElementSibling;
-        if (menu && menu.classList.contains("dropdown-menu")) {
-          const isVisible = menu.style.display === "block";
-          closeAllMenus();
-          if (!isVisible) menu.style.display = "block";
-        }
-      });
-    }
-
-    // Logout
-    if (elements.logoutBtn) {
-      elements.logoutBtn.addEventListener("click", () => {
-        localStorage.clear();
-        window.location.href = "login.html";
-      });
-    }
-
-    // Notificações
-    if (elements.notificationsIcon) {
-      elements.notificationsIcon.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const panel = elements.notificationsPanel;
-        const isVisible = panel.style.display === "block";
-        panel.style.display = isVisible ? "none" : "block";
-        if (!isVisible) markAllNotificationsAsRead();
-      });
-    }
-
-    // Tema
-    const themeToggle = document.querySelector(".theme-toggle");
-    if (themeToggle) {
-      themeToggle.addEventListener("click", toggleTheme);
-    }
-
-    // Modal de editar perfil
-    if (elements.editProfileBtn) {
-      elements.editProfileBtn.addEventListener("click", openEditProfileModal);
-    }
-    
-    if (elements.deleteAccountBtn) {
-      elements.deleteAccountBtn.addEventListener("click", openDeleteAccountModal);
-    }
-    
-    // Cancelar edição
-    if (document.getElementById("cancel-edit-profile-btn")) {
-      document.getElementById("cancel-edit-profile-btn").addEventListener("click", () => {
-        elements.editProfileModal.style.display = "none";
-      });
-    }
-    
-    // Cancelar exclusão
-    if (document.getElementById("cancel-delete-account-btn")) {
-      document.getElementById("cancel-delete-account-btn").addEventListener("click", () => {
-        elements.deleteAccountModal.style.display = "none";
-      });
-    }
-    
-    // Preview da foto de perfil
-    if (document.getElementById("edit-profile-pic-input")) {
-      document.getElementById("edit-profile-pic-input").addEventListener("change", function() {
-        const file = this.files[0];
-        if (file) {
-          document.getElementById("edit-profile-pic-preview").src = URL.createObjectURL(file);
-        }
-      });
-    }
-
-    // Submeter edição do perfil - CORRIGIDO
-    if (elements.editProfileForm) {
-      elements.editProfileForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        
-        const password = document.getElementById("edit-profile-password").value;
-        const passwordConfirm = document.getElementById("edit-profile-password-confirm").value;
-        
-        if (password && password !== passwordConfirm) {
-          showNotification("As novas senhas não coincidem.", "error");
-          return;
-        }
-        
-        try {
-          // Primeiro, atualizar a foto se houver uma nova
-          const profilePicInput = document.getElementById("edit-profile-pic-input");
-          if (profilePicInput.files[0]) {
-            const formData = new FormData();
-            formData.append("foto", profilePicInput.files[0]);
-            try {
-              const fotoResponse = await axios.put(`${backendUrl}/usuarios/me/foto`, formData);
-              currentUser = fotoResponse.data;
-              updateUIWithUserData(currentUser);
-              showNotification("Foto de perfil atualizada!", "success");
-            } catch (error) {
-              let errorMessage = "Erro ao atualizar a foto.";
-              if (error.response && error.response.data && error.response.data.message) {
-                errorMessage = error.response.data.message;
-              }
-              showNotification(errorMessage, "error");
-              return;
-            }
-          }
-          
-          // Depois, atualizar os outros dados
-          const updateData = {
-            nome: document.getElementById("edit-profile-name").value,
-            bio: document.getElementById("edit-profile-bio").value,
-            dataNascimento: document.getElementById("edit-profile-dob").value ? 
-              new Date(document.getElementById("edit-profile-dob").value).toISOString() : null,
-            senha: password || null,
-          };
-          
-          const response = await axios.put(`${backendUrl}/usuarios/me`, updateData);
-          currentUser = response.data;
-          updateUIWithUserData(currentUser);
-          populateProfileData(currentUser);
-          showNotification("Perfil atualizado com sucesso!", "success");
-          elements.editProfileModal.style.display = "none";
-        } catch (error) {
-          showNotification("Erro ao atualizar o perfil.", "error");
-        }
-      });
-    }
-
-    // Submeter exclusão de conta
-    if (elements.deleteAccountForm) {
-      elements.deleteAccountForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const password = document.getElementById("delete-confirm-password").value;
-        
-        if (!password) {
-          showNotification("Por favor, digite sua senha para confirmar.", "error");
-          return;
-        }
-        
-        try {
-          // Verificar senha primeiro
-          await axios.post(`${backendUrl}/autenticacao/login`, {
-            email: currentUser.email,
-            senha: password,
-          });
-          
-          if (confirm("Você tem ABSOLUTA CERTEZA? Esta ação não pode ser desfeita.")) {
-            await axios.delete(`${backendUrl}/usuarios/me`);
-            alert("Sua conta foi excluída com sucesso.");
-            localStorage.clear();
-            window.location.href = "login.html";
-          }
-        } catch (error) {
-          showNotification("Senha incorreta. A conta não foi excluída.", "error");
-        }
-      });
-    }
-
-    // Fechar modal de projeto ao clicar fora
-    if (document.getElementById('project-modal')) {
-      document.getElementById('project-modal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('project-modal')) {
-          closeProjectModal();
-        }
-      });
-    }
-
-    // Fechar modal de projeto com ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && document.getElementById('project-modal').style.display === 'flex') {
-        closeProjectModal();
-      }
-    });
-
-    // Fechar menus ao clicar fora
-    document.addEventListener('click', (e) => {
-      if (elements.editProfileModal && e.target === elements.editProfileModal) {
-        elements.editProfileModal.style.display = 'none';
-      }
-      if (elements.deleteAccountModal && e.target === elements.deleteAccountModal) {
-        elements.deleteAccountModal.style.display = 'none';
-      }
-      if (elements.editPostModal && e.target === elements.editPostModal) {
-        elements.editPostModal.style.display = 'none';
-      }
-      if (elements.editCommentModal && e.target === elements.editCommentModal) {
-        elements.editCommentModal.style.display = 'none';
-      }
-      if (elements.mediaViewerModal && e.target === elements.mediaViewerModal) {
-        closeMediaViewer();
-      }
-      
-      // Fechar dropdowns
-      closeAllMenus();
-      
-      // Fechar painel de notificações
-      if (elements.notificationsPanel && 
-          !elements.notificationsPanel.contains(e.target) && 
-          !elements.notificationsIcon.contains(e.target)) {
-        elements.notificationsPanel.style.display = "none";
-      }
-    });
-  }
-
-  function closeAllMenus() {
-    document.querySelectorAll('.options-menu, .dropdown-menu').forEach(menu => {
-      menu.style.display = 'none';
-    });
-  }
-
-  function showNotification(message, type = "info") {
-    const notification = document.createElement("div");
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    if (elements.notificationCenter) elements.notificationCenter.appendChild(notification);
-    setTimeout(() => {
-      notification.classList.add("show");
-    }, 10);
-    setTimeout(() => {
-      notification.classList.remove("show");
-      setTimeout(() => {
-        notification.remove();
-      }, 300);
-    }, 5000);
-  }
-  window.showNotification = showNotification;
-
-  // --- FUNÇÕES GLOBAIS PARA INTERAÇÃO ---
-
-  // Funções de curtida
+  // --- FUNÇÕES PARA POSTS E COMENTÁRIOS ---
   window.toggleLike = async (event, postId, commentId) => {
     const btn = event.currentTarget;
     const isPost = commentId === null;
@@ -2066,7 +1155,6 @@ window.toggleReplies = (buttonElement, commentId) => {
     const isLiked = btn.classList.contains("liked");
     const newCount = isLiked ? count + 1 : count - 1;
 
-    // Atualização da UI
     if (isPost) {
       const icon = btn.querySelector("i");
       if (icon) {
@@ -2083,7 +1171,6 @@ window.toggleReplies = (buttonElement, commentId) => {
       countSpan.innerHTML = `<i class="fas fa-heart"></i> ${newCount}`;
     }
 
-    // Chamada API
     try {
       await axios.post(`${backendUrl}/curtidas/toggle`, {
         postagemId: postId,
@@ -2110,7 +1197,6 @@ window.toggleReplies = (buttonElement, commentId) => {
     }
   };
 
-  // Funções de comentários
   window.toggleComments = (postId) => { 
     const sec = document.getElementById(`comments-section-${postId}`);
     if(sec) sec.style.display = sec.style.display === 'block' ? 'none' : 'block';
@@ -2141,7 +1227,6 @@ window.toggleReplies = (buttonElement, commentId) => {
     form.style.display = form.style.display === 'flex' ? 'none' : 'flex';
   };
 
-  // Funções de menu de opções
   window.openPostMenu = (postId) => {
     document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
     const menu = document.getElementById(`post-menu-${postId}`);
@@ -2154,22 +1239,78 @@ window.toggleReplies = (buttonElement, commentId) => {
     if (menu) menu.style.display = 'block';
   };
 
-  // Funções de edição e exclusão
   window.openEditPostModal = async (postId) => {
     if (!elements.editPostModal) return;
     try {
       const response = await axios.get(`${backendUrl}/postagem/${postId}`);
       const post = response.data;
       
-      // Preenche o modal com os dados do post
-      document.getElementById('edit-post-id').value = post.id;
-      document.getElementById('edit-post-textarea').value = post.conteudo;
+      if (elements.editPostIdInput) elements.editPostIdInput.value = post.id;
+      if (elements.editPostTextarea) elements.editPostTextarea.value = post.conteudo;
+      
+      // Reset containers de mídia
+      selectedFilesForEdit = [];
+      urlsParaRemover = [];
+      if (elements.editExistingMediaContainer) elements.editExistingMediaContainer.innerHTML = "";
+      if (elements.editFilePreviewContainer) elements.editFilePreviewContainer.innerHTML = "";
+      
+      // Preencher mídias existentes
+      if (post.urlsMidia && post.urlsMidia.length > 0 && elements.editExistingMediaContainer) {
+          post.urlsMidia.forEach(url => {
+              const item = document.createElement("div");
+              item.className = "existing-media-item";
+              
+              const preview = document.createElement("img");
+              preview.src = url;
+              
+              const checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.className = "remove-existing-media-checkbox";
+              checkbox.onchange = (e) => {
+                if (e.target.checked) {
+                  urlsParaRemover.push(url);
+                  item.style.opacity = "0.5";
+                } else {
+                  urlsParaRemover = urlsParaRemover.filter((u) => u !== url);
+                  item.style.opacity = "1";
+                }
+              };
+              
+              item.appendChild(preview);
+              item.appendChild(checkbox);
+              elements.editExistingMediaContainer.appendChild(item);
+          });
+      }
       
       elements.editPostModal.style.display = "flex";
     } catch (error) {
       showNotification("Erro ao carregar postagem para edição.", "error");
     }
   };
+  
+  // Função auxiliar para atualizar preview no modal de edição
+  function updateEditFilePreview() {
+    if (!elements.editFilePreviewContainer) return;
+    elements.editFilePreviewContainer.innerHTML = "";
+    selectedFilesForEdit.forEach((file, index) => {
+      const item = document.createElement("div");
+      item.className = "file-preview-item";
+      const previewElement = document.createElement("img");
+      previewElement.src = URL.createObjectURL(file);
+      item.appendChild(previewElement);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "remove-file-btn";
+      removeBtn.innerHTML = "&times;";
+      removeBtn.onclick = () => {
+        selectedFilesForEdit.splice(index, 1);
+        updateEditFilePreview();
+      };
+      item.appendChild(removeBtn);
+      elements.editFilePreviewContainer.appendChild(item);
+    });
+  }
 
   window.deletePost = async (postId) => {
     if (confirm("Tem certeza que deseja excluir esta postagem?")) {
@@ -2194,10 +1335,265 @@ window.toggleReplies = (buttonElement, commentId) => {
   };
 
   window.openEditCommentModal = (commentId, content) => {
-    document.getElementById('edit-comment-id').value = commentId;
-    document.getElementById('edit-comment-textarea').value = content;
-    document.getElementById('edit-comment-modal').style.display = "flex";
+    if (elements.editCommentIdInput) elements.editCommentIdInput.value = commentId;
+    if (elements.editCommentTextarea) elements.editCommentTextarea.value = content;
+    if (elements.editCommentModal) elements.editCommentModal.style.display = "flex";
   };
+
+  // --- SETUP EVENT LISTENERS ---
+  function setupCarouselModalEvents() {
+      if (elements.mediaViewerClose) elements.mediaViewerClose.addEventListener('click', closeMediaViewer);
+      if (elements.carouselPrev) elements.carouselPrev.addEventListener('click', prevMedia);
+      if (elements.carouselNext) elements.carouselNext.addEventListener('click', nextMedia);
+      
+      document.addEventListener('keydown', (e) => {
+          if(elements.mediaViewerModal && elements.mediaViewerModal.style.display === 'flex') {
+              if(e.key === 'Escape') closeMediaViewer();
+              if(e.key === 'ArrowLeft') prevMedia();
+              if(e.key === 'ArrowRight') nextMedia();
+          }
+      });
+  }
+
+  function setupEventListeners() {
+    if (elements.editProfileBtnPage) elements.editProfileBtnPage.addEventListener("click", openEditProfileModal);
+
+    if (elements.userDropdownTrigger) {
+      elements.userDropdownTrigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const menu = elements.userDropdownTrigger.nextElementSibling;
+        if (menu && menu.classList.contains("dropdown-menu")) {
+          const isVisible = menu.style.display === "block";
+          closeAllMenus();
+          if (!isVisible) menu.style.display = "block";
+        }
+      });
+    }
+
+    if (elements.logoutBtn) {
+      elements.logoutBtn.addEventListener("click", () => {
+        localStorage.clear();
+        window.location.href = "login.html";
+      });
+    }
+
+    if (elements.notificationsIcon) {
+      elements.notificationsIcon.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const panel = elements.notificationsPanel;
+        const isVisible = panel.style.display === "block";
+        panel.style.display = isVisible ? "none" : "block";
+        if (!isVisible) markAllNotificationsAsRead();
+      });
+    }
+
+    const themeToggle = document.querySelector(".theme-toggle");
+    if (themeToggle) {
+      themeToggle.addEventListener("click", toggleTheme);
+    }
+
+    if (elements.editProfileBtn) elements.editProfileBtn.addEventListener("click", openEditProfileModal);
+    if (elements.deleteAccountBtn) elements.deleteAccountBtn.addEventListener("click", openDeleteAccountModal);
+    
+    if (elements.cancelEditProfileBtn) {
+      elements.cancelEditProfileBtn.addEventListener("click", () => {
+        elements.editProfileModal.style.display = "none";
+      });
+    }
+    
+    if (elements.cancelDeleteAccountBtn) {
+      elements.cancelDeleteAccountBtn.addEventListener("click", () => {
+        elements.deleteAccountModal.style.display = "none";
+      });
+    }
+    
+    if (document.getElementById("edit-profile-pic-input")) {
+      document.getElementById("edit-profile-pic-input").addEventListener("change", function() {
+        const file = this.files[0];
+        if (file) {
+          document.getElementById("edit-profile-pic-preview").src = URL.createObjectURL(file);
+        }
+      });
+    }
+
+    if (elements.editProfileForm) {
+      elements.editProfileForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const password = document.getElementById("edit-profile-password").value;
+        const passwordConfirm = document.getElementById("edit-profile-password-confirm").value;
+        
+        if (password && password !== passwordConfirm) {
+          showNotification("As novas senhas não coincidem.", "error");
+          return;
+        }
+        
+        try {
+          const profilePicInput = document.getElementById("edit-profile-pic-input");
+          if (profilePicInput.files[0]) {
+            const formData = new FormData();
+            formData.append("foto", profilePicInput.files[0]);
+            try {
+              const fotoResponse = await axios.put(`${backendUrl}/usuarios/me/foto`, formData);
+              currentUser = fotoResponse.data;
+              updateUIWithUserData(currentUser);
+              showNotification("Foto de perfil atualizada!", "success");
+            } catch (error) {
+              let errorMessage = "Erro ao atualizar a foto.";
+              if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message;
+              }
+              showNotification(errorMessage, "error");
+              return;
+            }
+          }
+          
+          const updateData = {
+            nome: document.getElementById("edit-profile-name").value,
+            bio: document.getElementById("edit-profile-bio").value,
+            dataNascimento: document.getElementById("edit-profile-dob").value ? 
+              new Date(document.getElementById("edit-profile-dob").value).toISOString() : null,
+            senha: password || null,
+          };
+          
+          const response = await axios.put(`${backendUrl}/usuarios/me`, updateData);
+          currentUser = response.data;
+          updateUIWithUserData(currentUser);
+          populateProfileData(currentUser);
+          showNotification("Perfil atualizado com sucesso!", "success");
+          elements.editProfileModal.style.display = "none";
+        } catch (error) {
+          showNotification("Erro ao atualizar o perfil.", "error");
+        }
+      });
+    }
+
+    if (elements.deleteAccountForm) {
+      elements.deleteAccountForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const password = document.getElementById("delete-confirm-password").value;
+        
+        if (!password) {
+          showNotification("Por favor, digite sua senha para confirmar.", "error");
+          return;
+        }
+        
+        try {
+          await axios.post(`${backendUrl}/autenticacao/login`, {
+            email: currentUser.email,
+            senha: password,
+          });
+          
+          if (confirm("Você tem ABSOLUTA CERTEZA? Esta ação não pode ser desfeita.")) {
+            await axios.delete(`${backendUrl}/usuarios/me`);
+            alert("Sua conta foi excluída com sucesso.");
+            localStorage.clear();
+            window.location.href = "login.html";
+          }
+        } catch (error) {
+          showNotification("Senha incorreta. A conta não foi excluída.", "error");
+        }
+      });
+    }
+    
+    // Listeners para Edição de Post
+    if (elements.editPostFileInput) {
+      elements.editPostFileInput.addEventListener("change", (event) => {
+        Array.from(event.target.files).forEach((file) =>
+          selectedFilesForEdit.push(file)
+        );
+        updateEditFilePreview();
+      });
+    }
+
+    if (elements.editPostForm) {
+      elements.editPostForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        
+        try {
+          const postId = elements.editPostIdInput.value;
+          const postagemDTO = {
+            conteudo: elements.editPostTextarea.value,
+            urlsParaRemover: urlsParaRemover,
+          };
+          
+          const formData = new FormData();
+          formData.append("postagem", new Blob([JSON.stringify(postagemDTO)], { type: "application/json" }));
+          selectedFilesForEdit.forEach((file) => formData.append("arquivos", file));
+
+          await axios.put(`${backendUrl}/postagem/${postId}`, formData);
+
+          elements.editPostModal.style.display = "none";
+          showNotification("Postagem editada com sucesso.", "success");
+        } catch (error) {
+          showNotification("Erro ao editar postagem.", "error");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-save"></i> Salvar Alterações';
+        }
+      });
+    }
+
+    if (elements.cancelEditPostBtn) {
+      elements.cancelEditPostBtn.addEventListener("click", () => {
+        elements.editPostModal.style.display = "none";
+      });
+    }
+
+    if (elements.editCommentForm) {
+      elements.editCommentForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const commentId = elements.editCommentIdInput.value;
+        const content = elements.editCommentTextarea.value;
+        try {
+          await axios.put(`${backendUrl}/comentarios/${commentId}`, { conteudo: content }, { headers: { "Content-Type": "application/json" } });
+          showNotification("Comentário editado.", "success");
+          elements.editCommentModal.style.display = "none";
+        } catch (error) {
+          showNotification("Não foi possível salvar o comentário.", "error");
+        }
+      });
+    }
+
+    if (elements.cancelEditCommentBtn) {
+      elements.cancelEditCommentBtn.addEventListener("click", () => {
+        elements.editCommentModal.style.display = "none";
+      });
+    }
+
+    if (document.getElementById('project-modal')) {
+      document.getElementById('project-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('project-modal')) {
+          closeProjectModal();
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('project-modal') && document.getElementById('project-modal').style.display === 'flex') {
+        closeProjectModal();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (elements.editProfileModal && e.target === elements.editProfileModal) elements.editProfileModal.style.display = 'none';
+      if (elements.deleteAccountModal && e.target === elements.deleteAccountModal) elements.deleteAccountModal.style.display = 'none';
+      if (elements.editPostModal && e.target === elements.editPostModal) elements.editPostModal.style.display = 'none';
+      if (elements.editCommentModal && e.target === elements.editCommentModal) elements.editCommentModal.style.display = 'none';
+      if (elements.mediaViewerModal && e.target === elements.mediaViewerModal) closeMediaViewer();
+      
+      closeAllMenus();
+      
+      if (elements.notificationsPanel && 
+          !elements.notificationsPanel.contains(e.target) && 
+          !elements.notificationsIcon.contains(e.target)) {
+        elements.notificationsPanel.style.display = "none";
+      }
+    });
+  }
 
   // Inicialização
   init();
