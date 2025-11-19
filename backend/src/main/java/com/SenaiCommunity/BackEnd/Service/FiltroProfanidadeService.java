@@ -43,6 +43,8 @@ public class FiltroProfanidadeService {
             "vai tomar no cu", "tmnc", "tnc", "gorda", "gordo", "gordinha", "gordão",
             "gordinho", "rolha de poço", "negrinho", "neguinho", "xvideos", "xvideo", "pornhub",
             "porno", "porn", "ass", "pussy"
+
+
     );
 
     private static final Pattern PADRAO_PROFANIDADE;

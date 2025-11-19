@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Exemplo: if (typeof setupPasswordToggles === 'function') setupPasswordToggles();
 
     const loginForm = document.getElementById('loginForm');
-    const backendUrl = 'https://senaicommunitydeploy-production.up.railway.app';
+    const backendUrl = 'http://senaicommunitydeploy-production.up.railway.app';
     // ATENÇÃO: Verifique se este é o seu Client ID correto
     const googleClientId = '1055449517512-gq7f7doogo5e8vmaq84vgrabsk1q5f5k.apps.googleusercontent.com';
     
