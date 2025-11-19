@@ -146,7 +146,7 @@ function setupFormSubmission() {
         btn.classList.add('loading');
 
         try {
-            await axios.post('http://senaicommunitydeploy-production.up.railway.app/cadastro/alunos', formData, {
+            await axios.post('https://senaicommunitydeploy-production.up.railway.app/cadastro/alunos', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             
