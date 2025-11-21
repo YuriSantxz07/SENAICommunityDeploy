@@ -53,7 +53,8 @@ function normalizeProjectStatus(status) {
         'CONCLUIDO': 'Concluído',
         'Em planejamento': 'Em planejamento',
         'Em progresso': 'Em progresso',
-        'Concluído': 'Concluído'
+        'Concluído': 'Concluído',
+        'Concluido': 'Concluído'
     };
     
     return statusMap[status] || 'Em planejamento';
@@ -66,7 +67,8 @@ function normalizeStatusForBackend(status) {
     const statusMap = {
         'Em planejamento': 'Em planejamento',
         'Em progresso': 'Em progresso', 
-        'Concluído': 'Concluído'
+        'Concluído': 'Concluido', 
+        'Concluido': 'Concluido'
     };
     
     return statusMap[status] || 'Em planejamento';
@@ -129,8 +131,13 @@ function checkUserRole() {
     const settingsBtn = document.getElementById('project-settings-btn');
     const addMemberBtn = document.getElementById('add-member-btn');
     const solicitacoesBtn = document.getElementById('solicitacoes-btn');
+    const leaveProjectBtn = document.getElementById('leave-project-btn');
+    const deleteProjectBtn = document.getElementById('delete-project-btn');
+    const deleteProjectModalBtn = document.getElementById('delete-project-modal-btn');
     
     const isAdminOrModerator = (userRole === 'ADMIN' || userRole === 'MODERADOR');
+    const isAdmin = (userRole === 'ADMIN');
+    const isMember = (userRole === 'MEMBRO' || userRole === 'MODERADOR');
     
     if (settingsBtn) {
         settingsBtn.style.display = isAdminOrModerator ? 'block' : 'none';
@@ -143,8 +150,25 @@ function checkUserRole() {
     }
     
     if (solicitacoesBtn) {
-        solicitacoesBtn.style.display = isAdminOrModerator ? 'block' : 'none';
+       solicitacoesBtn.style.display = isAdminOrModerator ? 'inline-flex' : 'none';
         console.log(`[DEBUG] Solicitações button display: ${solicitacoesBtn.style.display}`);
+    }
+    
+    // CORREÇÃO: Mostrar botão de sair para membros (não admin)
+    if (leaveProjectBtn) {
+        leaveProjectBtn.style.display = isMember ? 'block' : 'none';
+        console.log(`[DEBUG] Leave project button display: ${leaveProjectBtn.style.display}`);
+    }
+    
+    // CORREÇÃO: Mostrar botão de excluir apenas para admin
+    if (deleteProjectBtn) {
+        deleteProjectBtn.style.display = isAdmin ? 'block' : 'none';
+        console.log(`[DEBUG] Delete project button display: ${deleteProjectBtn.style.display}`);
+    }
+    
+    if (deleteProjectModalBtn) {
+        deleteProjectModalBtn.style.display = isAdmin ? 'block' : 'none';
+        console.log(`[DEBUG] Delete project modal button display: ${deleteProjectModalBtn.style.display}`);
     }
     
     // CORREÇÃO: Forçar re-renderização da lista de membros para mostrar ações
@@ -160,7 +184,7 @@ let stompClient = null;
 let projectId = null;
 let userRole = null;
 let selectedFiles = [];
-const backendUrl = "https://senaicommunitydeploy-production.up.railway.app";
+const backendUrl = "http://localhost:8080";
 const defaultAvatarUrl = `${backendUrl}/images/default-avatar.jpg`;
 
 // Inicialização quando o DOM estiver carregado
@@ -1208,13 +1232,6 @@ async function editMessage(messageId) {
         }
     });
     
-    // Fechar modal ao clicar fora
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) {
-            closeModal();
-        }
-    });
-    
     // Focar no textarea e selecionar todo o conteúdo
     textarea.focus();
     textarea.select();
@@ -1680,6 +1697,24 @@ function setupEventListeners() {
 
     // CORREÇÃO: Adicionar botão de solicitações se não existir
     setupSolicitacoesButton();
+
+    // NOVO: Botão de sair do projeto
+    const leaveProjectBtn = document.getElementById('leave-project-btn');
+    if (leaveProjectBtn) {
+        leaveProjectBtn.addEventListener('click', leaveProject);
+    }
+
+    // NOVO: Botão de excluir projeto (sidebar)
+    const deleteProjectBtn = document.getElementById('delete-project-btn');
+    if (deleteProjectBtn) {
+        deleteProjectBtn.addEventListener('click', deleteProject);
+    }
+
+    // NOVO: Botão de excluir projeto (modal)
+    const deleteProjectModalBtn = document.getElementById('delete-project-modal-btn');
+    if (deleteProjectModalBtn) {
+        deleteProjectModalBtn.addEventListener('click', deleteProject);
+    }
 }
 
 // CORREÇÃO: Configurar botão de adicionar membro
@@ -1704,19 +1739,34 @@ function setupAddMemberButton() {
 // CORREÇÃO: Configurar botão de solicitações
 function setupSolicitacoesButton() {
     const chatActions = document.querySelector('.chat-actions');
-    if (chatActions && !document.getElementById('solicitacoes-btn')) {
-        const solicitacoesBtn = document.createElement('button');
+    let solicitacoesBtn = document.getElementById('solicitacoes-btn');
+    
+    // 1. Se o botão NÃO existir no HTML, cria ele dinamicamente
+    if (!solicitacoesBtn && chatActions) {
+        solicitacoesBtn = document.createElement('button');
         solicitacoesBtn.id = 'solicitacoes-btn';
         solicitacoesBtn.className = 'action-btn';
         solicitacoesBtn.innerHTML = '<i class="fas fa-user-clock"></i>';
         solicitacoesBtn.setAttribute('data-tooltip', 'Solicitações de entrada');
-        solicitacoesBtn.style.display = 'none';
-        
+        solicitacoesBtn.style.display = 'none'; // Começa invisível
+        chatActions.appendChild(solicitacoesBtn);
+    }
+
+    
+    if (solicitacoesBtn) {
+       
+        const newBtn = solicitacoesBtn.cloneNode(true);
+        solicitacoesBtn.parentNode.replaceChild(newBtn, solicitacoesBtn);
+        solicitacoesBtn = newBtn; // Atualiza a referência
+
         solicitacoesBtn.addEventListener('click', function() {
+            console.log("Botão de solicitações clicado!"); // Debug para confirmar
             openSolicitacoesModal();
         });
         
-        chatActions.appendChild(solicitacoesBtn);
+        if (currentUser && currentProject) {
+            checkUserRole(); 
+        }
     }
 }
 
@@ -2087,13 +2137,17 @@ function openSolicitacoesModal() {
     loadSolicitacoes();
 }
 
-// NOVA FUNÇÃO: Carregar solicitações pendentes
+
 async function loadSolicitacoes() {
     try {
+        const solicitacoesList = document.getElementById('solicitacoes-list');
+        if (!solicitacoesList) return;
+        
+        solicitacoesList.innerHTML = '<div style="text-align:center"><div class="loading-spinner"></div></div>';
+
         const response = await axios.get(`${backendUrl}/projetos/${projectId}/solicitacoes?usuarioId=${currentUser.id}`);
         const solicitacoes = response.data;
         
-        const solicitacoesList = document.getElementById('solicitacoes-list');
         solicitacoesList.innerHTML = '';
         
         if (solicitacoes.length === 0) {
@@ -2105,9 +2159,21 @@ async function loadSolicitacoes() {
             const solicitacaoElement = document.createElement('div');
             solicitacaoElement.className = 'solicitacao-item';
             
-            const userAvatar = solicitacao.usuarioFoto ? 
-                (solicitacao.usuarioFoto.startsWith('http') ? solicitacao.usuarioFoto : `${backendUrl}${solicitacao.usuarioFoto}`) :
-                defaultAvatarUrl;
+            // Lógica de Avatar robusta (igual à usada nos membros)
+            let userAvatar = defaultAvatarUrl;
+            if (solicitacao.usuarioFoto) {
+                if (solicitacao.usuarioFoto.startsWith('http')) {
+                    userAvatar = solicitacao.usuarioFoto;
+                } else {
+                    // Garante que não duplique barras ou falte barras
+                    const path = solicitacao.usuarioFoto.startsWith('/') ? solicitacao.usuarioFoto : `/${solicitacao.usuarioFoto}`;
+                    userAvatar = `${backendUrl}/api/arquivos${path}`;
+                    // Nota: Ajuste o caminho '/api/arquivos' conforme sua rota real de imagens se for diferente
+                    if(solicitacao.usuarioFoto.startsWith('/images/')) {
+                         userAvatar = `${backendUrl}${solicitacao.usuarioFoto}`;
+                    }
+                }
+            }
             
             solicitacaoElement.innerHTML = `
                 <div class="solicitacao-user">
@@ -2119,8 +2185,8 @@ async function loadSolicitacoes() {
                     </div>
                 </div>
                 <div class="solicitacao-actions">
-                    <button class="btn btn-primary" onclick="aceitarSolicitacao(${solicitacao.id})">Aceitar</button>
-                    <button class="btn btn-danger" onclick="recusarSolicitacao(${solicitacao.id})">Recusar</button>
+                    <button class="btn btn-primary" onclick="aceitarSolicitacao(${solicitacao.id})" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Aceitar</button>
+                    <button class="btn btn-danger" onclick="recusarSolicitacao(${solicitacao.id})" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">Recusar</button>
                 </div>
             `;
             solicitacoesList.appendChild(solicitacaoElement);
@@ -2128,7 +2194,8 @@ async function loadSolicitacoes() {
         
     } catch (error) {
         console.error("Erro ao carregar solicitações:", error);
-        document.getElementById('solicitacoes-list').innerHTML = '<p class="empty-state">Erro ao carregar solicitações</p>';
+        const list = document.getElementById('solicitacoes-list');
+        if(list) list.innerHTML = '<p class="empty-state" style="color: var(--danger)">Erro ao carregar solicitações. Verifique se você tem permissão de administrador.</p>';
     }
 }
 
@@ -2177,6 +2244,78 @@ async function recusarSolicitacao(solicitacaoId) {
         console.error("Erro ao recusar solicitação:", error);
         
         let errorMessage = "Erro ao recusar solicitação";
+        if (error.response && error.response.data) {
+            errorMessage = error.response.data;
+        }
+        
+        showNotification(errorMessage, "error");
+    } finally {
+        hideLoading();
+    }
+}
+
+// NOVA FUNÇÃO: Sair do projeto
+async function leaveProject() {
+    if (!confirm("Tem certeza que deseja sair deste projeto?")) {
+        return;
+    }
+    
+    try {
+        showLoading("Saindo do projeto...");
+        
+        await axios.delete(`${backendUrl}/projetos/${projectId}/sair`, {
+            params: {
+                usuarioId: currentUser.id
+            }
+        });
+        
+        showNotification("Você saiu do projeto com sucesso", "success");
+        
+        // Redirecionar para a página de projetos
+        setTimeout(() => {
+            window.location.href = "projeto.html";
+        }, 1500);
+        
+    } catch (error) {
+        console.error("Erro ao sair do projeto:", error);
+        
+        let errorMessage = "Erro ao sair do projeto";
+        if (error.response && error.response.data) {
+            errorMessage = error.response.data;
+        }
+        
+        showNotification(errorMessage, "error");
+    } finally {
+        hideLoading();
+    }
+}
+
+// NOVA FUNÇÃO: Excluir projeto (apenas para admin)
+async function deleteProject() {
+    if (!confirm("Tem certeza que deseja excluir este projeto? Esta ação não pode ser desfeita e todos os membros serão removidos.")) {
+        return;
+    }
+    
+    try {
+        showLoading("Excluindo projeto...");
+        
+        await axios.delete(`${backendUrl}/projetos/${projectId}/info`, {
+            params: {
+                adminId: currentUser.id
+            }
+        });
+        
+        showNotification("Projeto excluído com sucesso", "success");
+        
+        // Redirecionar para a página de projetos
+        setTimeout(() => {
+            window.location.href = "projeto.html";
+        }, 1500);
+        
+    } catch (error) {
+        console.error("Erro ao excluir projeto:", error);
+        
+        let errorMessage = "Erro ao excluir projeto";
         if (error.response && error.response.data) {
             errorMessage = error.response.data;
         }
@@ -2386,3 +2525,5 @@ window.setButtonLoading = setButtonLoading;
 window.expandMessage = expandMessage;
 window.aceitarSolicitacao = aceitarSolicitacao;
 window.recusarSolicitacao = recusarSolicitacao;
+window.leaveProject = leaveProject;
+window.deleteProject = deleteProject;
