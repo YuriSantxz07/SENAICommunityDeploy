@@ -71,6 +71,18 @@ body {
   box-shadow: var(--shadow);
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem; /* Controla a distância entre os ícones e a foto do perfil */
+}
+
+@media (max-width: 768px) {
+  .header-right {
+    gap: 0.5rem; /* Distância menor no celular */
+  }
+}
+
 .header-left {
   display: flex;
   align-items: center;
@@ -1211,18 +1223,42 @@ body {
 
   .sidebar {
     position: fixed;
-    top: 60px;
+    top: 0; /* Ajustado para cobrir desde o topo */
     left: 0;
     width: 280px;
-    height: calc(100vh - 60px);
-    z-index: 800;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    height: 100vh;
+    z-index: 2000;
     background-color: var(--bg-primary);
+    
+    /* Animação de deslize */
+    transform: translateX(-100%); 
+    transition: transform 0.3s ease;
+    box-shadow: none;
   }
 
+  /* Classe que o JS adiciona para mostrar */
   .sidebar.mobile-open {
-    transform: translateX(0);
+    transform: translateX(0); /* Traz a sidebar para a tela */
+    box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+  }
+
+  /* O fundo escuro */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1999;
+    display: none; /* Escondido por padrão */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+    opacity: 1;
   }
 }
 

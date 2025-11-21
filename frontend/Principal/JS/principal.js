@@ -662,6 +662,24 @@ function openDeleteAccountModal() {
 
 // --- SETUP DE EVENT LISTENERS GLOBAIS ---
 function setupGlobalEventListeners() {
+  const menuToggle = document.querySelector(".menu-toggle");
+const sidebar = document.querySelector(".sidebar");
+const overlay = document.getElementById("sidebar-overlay");
+
+if (menuToggle && sidebar && overlay) {
+    // Abrir menu
+    menuToggle.addEventListener("click", (e) => {
+        e.stopPropagation(); // Evita conflitos
+        sidebar.classList.toggle("mobile-open");
+        overlay.classList.toggle("active");
+    });
+
+    // Fechar ao clicar no overlay (fundo escuro)
+    overlay.addEventListener("click", () => {
+        sidebar.classList.remove("mobile-open");
+        overlay.classList.remove("active");
+    });
+}
   document.body.addEventListener("click", (e) => {
     if (
       globalElements.notificationsPanel &&
