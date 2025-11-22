@@ -158,7 +158,7 @@ usuarios.forEach((usuario) => {
              <i class="fas fa-comment-dots"></i> Enviar Mensagem
            </button>`;
 
-       userCard.innerHTML = `
+        userCard.innerHTML = `
           <div class="card-header-info">
             <div class="user-card-avatar">
               <img src="${fotoUrl}" alt="Foto de ${usuario.nome}" loading="lazy">
@@ -171,10 +171,11 @@ usuarios.forEach((usuario) => {
               <p>${usuario.email}</p>
             </div>
           </div>
-          
           <div class="user-card-actions">
+            <div class="user-card-action">
               ${actionButtonHtml}
-              ${messageButtonHtml}
+            </div>
+            ${messageButtonHtml}
           </div>
         `;
         elements.searchResultsContainer.appendChild(userCard);

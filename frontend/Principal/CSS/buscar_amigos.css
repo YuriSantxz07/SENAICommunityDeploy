@@ -249,65 +249,7 @@
 }
 
 /* Botões do Card */
-/* --- ATUALIZAÇÃO DE BOTÕES (buscar_amigos.css) --- */
-
-/* Container dos botões: Agora em coluna para empilhar */
 .user-card-actions {
-    display: flex;
-    flex-direction: column; /* Empilha os botões */
-    gap: 0.75rem;
-    margin-top: auto;
-    width: 100%;
-}
-
-/* Estilo base unificado para todos os botões */
-.btn {
-    border: none;
-    padding: 0.7rem; /* Aumentado para igualar ao btn-message */
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600; /* Negrito igual ao btn-message */
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    text-decoration: none;
-    width: 100%; /* Garante largura total */
-}
-
-/* Botão Primário (Adicionar) - Agora com Gradiente igual ao Mensagem */
-.btn-primary { 
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white; 
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.btn-primary:hover { 
-    background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
-}
-
-/* Botão Secundário (Pendente/Amigos) - Mantém cinza mas full width */
-.btn-secondary { 
-    background: var(--bg-tertiary); 
-    color: var(--text-primary); 
-}
-.btn-secondary:hover { background: var(--bg-quaternary); }
-
-/* Botão Mensagem (Mantém o estilo, mas removemos propriedades redundantes) */
-.btn-message {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    /* As outras propriedades já são herdadas de .btn */
-}
-
-.btn-message:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
-}.user-card-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
