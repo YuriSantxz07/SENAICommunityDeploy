@@ -360,7 +360,7 @@
     width: 100%;
 }
 
-.connections-section { margin-bottom: 3rem; }
+.connections-section { margin-bottom: 3rem; margin-top: 0 }
 
 .section-title {
     font-size: 1.25rem;
@@ -484,6 +484,7 @@
     display: none; /* Oculto no desktop */
     align-items: center; justify-content: space-between;
     margin-bottom: 1.5rem;
+    margin-bottom: 0;
 }
 .page-title-mobile { font-size: 1.25rem; font-weight: 700; margin: 0; }
 
