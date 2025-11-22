@@ -19,60 +19,29 @@
             <div class="menu-toggle">
                 <i class="fas fa-bars"></i>
             </div>
+            <a href="/projeto.html" class="back-btn" data-tooltip="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
             <h1 class="logo"><span class="highlight">SENAI </span>Community</h1>
         </div>
 
-        <div class="search">
-            <i class="fas fa-search"></i>
-            <input type="text" id="search-input" placeholder="Pesquisar por autor ou conteúdo...">
-            <div class="search-results"></div>
+        <div class="project-info">
+            <h2 id="project-name">Carregando...</h2>
+            <span class="project-status" id="project-status">Online</span>
         </div>
 
-        <div class="header-right"> 
-            
-            <nav class="nav-icons">
-                <div class="nav-icon" data-tooltip="Página Inicial">
-                    <i class="fas fa-home"></i>
-                </div>
-                <div class="nav-icon" data-tooltip="Mensagens">
-                    <i class="fas fa-comment-dots"></i>
-                    <span class="badge" id="message-badge" style="display: none;">0</span>
-                </div>
-                
-                <div class="nav-icon" data-tooltip="Notificações" id="notifications-icon">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge" id="notifications-badge" style="display: none;">0</span>
-                    <div class="notifications-panel" id="notifications-panel">
-                        <div class="notifications-header">
-                            <h3>Notificações</h3>
-                        </div>
-                        <div class="notifications-list" id="notifications-list">
-                            <p class="empty-state">Nenhuma notificação nova.</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="theme-toggle" data-tooltip="Alternar tema">
-                    <i class="fas fa-moon"></i>
-                </div>
-            </nav>
-    
-            <div class="user-dropdown">
-                <div class="user">
-                    <div class="profile-pic">
-                        <img src="https://via.placeholder.com/40" alt="Perfil" id="topbar-user-img">
-                    </div>
-                    <span id="topbar-user-name">Carregando...</span>
-                    <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="dropdown-menu">
-                    <a href="#" id="edit-profile-btn"><i class="fas fa-user-edit"></i> Editar Perfil</a>
-                    <a href="#" id="delete-account-btn" class="danger"><i class="fas fa-user-slash"></i> Excluir Conta</a>
-                    <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Sair</a>
-                </div>
+        <nav class="nav-icons">
+            <div class="nav-icon" data-tooltip="Informações do Projeto" id="project-info-btn">
+                <i class="fas fa-info-circle"></i>
             </div>
-
-        </div> </header>
+            <div class="nav-icon" data-tooltip="Configurações" id="project-settings-btn">
+                <i class="fas fa-cog"></i>
+            </div>
+            <div class="theme-toggle" data-tooltip="Alternar tema">
+                <i class="fas fa-moon"></i>
+            </div>
+        </nav>
+    </header>
 
     <div class="project-container">
         <!-- Sidebar com membros do projeto -->
