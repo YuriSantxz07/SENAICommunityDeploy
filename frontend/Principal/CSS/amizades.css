@@ -767,26 +767,3 @@
     border-width: 2px;
 }
 
-/* =================================================================
-   CORREÇÃO DE ESPAÇAMENTO (Minhas Conexões vs Pedidos)
-   Adicione ao final de amizades.css
-================================================================= */
-
-/* 1. Reduz a margem inferior do título principal "Minhas Conexões" */
-.main-content > h2,
-.main-content > h1 {
-    margin-bottom: 0.5rem; /* Reduzido de ~2rem para 0.5rem */
-    margin-top: 0;
-}
-
-/* 2. Remove qualquer margem superior da primeira seção de conexões */
-.connections-section:first-of-type {
-    margin-top: 0;
-    padding-top: 0;
-}
-
-/* 3. Garante que o subtítulo ("Pedidos de Amizade...") encoste mais acima */
-.connections-section .section-title {
-    margin-top: 0;
-    padding-top: 0;
-}
