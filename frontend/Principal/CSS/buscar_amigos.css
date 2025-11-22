@@ -273,19 +273,7 @@
     width: 100%;
 }
 
-.btn-primary { 
-    background: var(--accent-primary); 
-    color: white;
-    grid-column: 1 / -1;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    padding: 0.7rem;
-    border-radius: 8px;
-    font-weight: 600;
-    margin-top: 0.5rem;
-    width: 100%;
-    justify-content: center;
- }
+.btn-primary { background: var(--accent-primary); color: white; }
 .btn-primary:hover { background: var(--accent-secondary); }
 
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
@@ -304,14 +292,13 @@
     margin-top: 0.5rem;
     width: 100%;
     justify-content: center;
+    margin-top: 0;
 }
 
 .btn-message:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
 }
-
-
 
 /* Link do Perfil */
 .user-card-link {
